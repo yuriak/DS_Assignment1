@@ -88,7 +88,7 @@ public class Resource {
     }
 
     public static boolean checkValidity(JSONObject resourceObject) {
-        return (!resourceObject.has("name") || !resourceObject.has("tags") || !resourceObject.has("description") || !resourceObject.has("uri") || !resourceObject.has("channel") || !resourceObject.has("owner") || !!resourceObject.has("ezserver"));
+        return (resourceObject.has("name") && resourceObject.has("tags") && resourceObject.has("description") && resourceObject.has("uri") && resourceObject.has("channel") && resourceObject.has("owner") && resourceObject.has("ezserver"));
     }
 
     public static JSONObject toJson(Resource resource){
@@ -105,7 +105,10 @@ public class Resource {
         jsonObject.put("uri",resource.getUri()==null?"":resource.getUri().toString());
         jsonObject.put("channel",resource.getChannel()==null?"":resource.getChannel());
         jsonObject.put("owner",resource.getOwner()==null?"":resource.getOwner());
-        jsonObject.put("ezserver",resource.getServer()==null?null:resource.getServer().toString());
+        jsonObject.put("ezserver",resource.getServer()==null?"":resource.getServer().toString());
+        if (resource.getSize()>0){
+            jsonObject.put("resourceSize",resource.getSize());
+        }
         return jsonObject;
     }
 
@@ -125,9 +128,12 @@ public class Resource {
         String owner=resourceObject.getString("owner");
         String channel=resourceObject.getString("channel");
         String ezServerString=resourceObject.getString("ezserver");
-        String ezHost=ezServerString.split(":")[0];
-        int port = Integer.parseInt(ezServerString.split(":")[1]);
-        Server server = new Server(ezHost,port);
+        Server server=null;
+        if (!ezServerString.equals("")){
+            String ezHost = ezServerString.split(":")[0];
+            int port = Integer.parseInt(ezServerString.split(":")[1]);
+            server = new Server(ezHost, port);
+        }
         JSONArray tagArray=resourceObject.getJSONArray("tags");
         List<String> tagList=new ArrayList<>();
         for (int i = 0; i < tagArray.length(); i++) {
@@ -146,4 +152,12 @@ public class Resource {
         }
         return resource;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Resource)) return false;
+        Resource resource=(Resource) obj;
+        return resource.getOwner().equals(this.owner)&&resource.getChannel().equals(this.channel)&&resource.getUri().equals(this.uri);
+    }
+
 }

@@ -3,9 +3,7 @@ package org.aw.server;
 import org.apache.log4j.Logger;
 import org.aw.comman.ResponseType;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
 import java.util.List;
 
@@ -19,7 +17,6 @@ public class Connection implements Runnable {
 	private ServerCommandProcessor processor;
 	Logger logger=Logger.getLogger(Connection.class);
 	public Connection(Socket clientSocket) {
-
 		this.clientSocket = clientSocket;
 		this.processor=ServerCommandProcessor.getInstance();
 		try {
@@ -32,18 +29,38 @@ public class Connection implements Runnable {
 
 	public void run() {
 		try {
-			List<Response> responses = processor.processCommand(inputStream.readUTF());
+			String message=inputStream.readUTF();
+			List<Response> responses = processor.processCommand(message);
 			for (Response response : responses) {
 				if(response.getType()== ResponseType.MESSAGE){
 					outputStream.writeUTF(response.getMessage());
 					outputStream.flush();
-				}else{
+				}else if (response.getType()==ResponseType.BYTES){
 					outputStream.write(response.getBytes());
 					outputStream.flush();
+				}else {
+					BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(response.getFile()));
+					int bufferSize=1024;
+					byte[] bufferArray=new byte[bufferSize];
+					int read = 0;
+					while ((read = bufferedInputStream.read(bufferArray))!=-1){
+						outputStream.write(bufferArray,0,read);
+					}
+					outputStream.flush();
+					bufferedInputStream.close();
 				}
 			}
+			inputStream.close();
+			outputStream.close();
 		} catch (IOException e) {
 			logger.info("Lost connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
+		}finally{
+			try {
+				this.clientSocket.close();
+				logger.info("Close connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 }

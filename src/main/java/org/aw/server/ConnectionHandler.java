@@ -25,6 +25,7 @@ public class ConnectionHandler {
 			ServerSocket serverSocket = new ServerSocket(server.getPort());
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
+				clientSocket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
 				logger.info("handel connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
 				executor.execute(new Connection(clientSocket));
 			}
@@ -38,7 +39,4 @@ public class ConnectionHandler {
 		return executor.getActiveCount();
 	}
 
-	public void establishConnection(Server server,String message){
-
-	}
 }
