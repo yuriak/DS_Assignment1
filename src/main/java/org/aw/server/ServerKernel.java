@@ -1,15 +1,13 @@
 package org.aw.server;
 
 import org.apache.log4j.Logger;
+import org.aw.comman.Message;
+import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +28,16 @@ public class ServerKernel {
 
 	private Server server;
 	private int status;
-	private ConnectionHandler handler;
+
+	public ConnectionManager getConnectionManager() {
+		return connectionManager;
+	}
+
+	public void setConnectionManager(ConnectionManager connectionManager) {
+		this.connectionManager = connectionManager;
+	}
+
+	private ConnectionManager connectionManager;
 	private List<Resource> resources;
 	private List<Server> servers;
 	private static ServerKernel serverKernel;
@@ -38,7 +45,6 @@ public class ServerKernel {
 	private ServerKernel() {
 		resources=new ArrayList<>();
 		servers=new ArrayList<>();
-
 	}
 
 	public static ServerKernel getInstance() {
@@ -65,14 +71,14 @@ public class ServerKernel {
 			ServerConfig.HOST_NAME="UnknowHost";
 		}
 		ServerConfig.SECRET = (secret == null ? UUID.randomUUID().toString() : secret);
-		handler=new ConnectionHandler();
+		connectionManager =new ConnectionManager();
 		logger.info("init server: "+server.getHostname()+":"+server.getPort());
 	}
 
 	public void startServer(){
 		Thread listenThread = new Thread(new Runnable() {
 			public void run() {
-				handler.handleConnection(server);
+				connectionManager.handleConnection(server);
 				logger.info("start to handle connection");
 			}
 		});
@@ -124,35 +130,22 @@ public class ServerKernel {
 			Random random = new Random();
 			List<Server> diedServer = new ArrayList<>();
 			random.ints(0, servers.size()).distinct().limit(servers.size() / 2).forEach(r -> {
-				Socket socket = null;
-				try {
-					socket = new Socket(servers.get(r).getHostname(), servers.get(r).getPort());
-					DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-					DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-					JSONObject messageObject = new JSONObject();
-					JSONArray serverArray = new JSONArray(servers);
-					messageObject.put("command", "EXCHANGE");
-					messageObject.put("serverList", serverArray);
-					outputStream.writeUTF(messageObject.toString());
-					outputStream.flush();
-					JSONObject resultObject = new JSONObject(inputStream.readUTF());
+				JSONObject messageObject = new JSONObject();
+				JSONArray serverArray = new JSONArray(servers);
+				messageObject.put("command", "EXCHANGE");
+				messageObject.put("serverList", serverArray);
+				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
+				Message response = connectionManager.establishConnection(servers.get(r), message);
+				if (response==null){
+					diedServer.add(servers.get(r));
+				}else {
+					JSONObject resultObject = new JSONObject(response.getMessage());
 					if (!resultObject.has("response") && resultObject.getString("response").equals("success"))
 						diedServer.add(servers.get(r));
-					outputStream.close();
-					inputStream.close();
-				} catch (IOException e) {
-					diedServer.add(servers.get(r));
-				} finally {
-					if (socket != null) {
-						try {
-							socket.close();
-						} catch (IOException e) {
-						}
-					}
 				}
 			});
-//			System.out.println("current: "+servers);
 			servers.removeAll(diedServer);
+			System.out.println(servers);
 		}
 	}
 }

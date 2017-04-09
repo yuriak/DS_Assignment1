@@ -1,7 +1,8 @@
 package org.aw.server;
 
 import org.apache.log4j.Logger;
-import org.aw.comman.ResponseType;
+import org.aw.comman.Message;
+import org.aw.comman.MessageType;
 
 import java.io.*;
 import java.net.Socket;
@@ -29,17 +30,17 @@ public class Connection implements Runnable {
 
 	public void run() {
 		try {
-			String message=inputStream.readUTF();
-			List<Response> responses = processor.processCommand(message);
-			for (Response response : responses) {
-				if(response.getType()== ResponseType.MESSAGE){
-					outputStream.writeUTF(response.getMessage());
+			String commandString=inputStream.readUTF();
+			List<Message> messages = processor.processCommand(commandString);
+			for (Message message : messages) {
+				if(message.getType()== MessageType.STRING){
+					outputStream.writeUTF(message.getMessage());
 					outputStream.flush();
-				}else if (response.getType()==ResponseType.BYTES){
-					outputStream.write(response.getBytes());
+				}else if (message.getType()== MessageType.BYTES){
+					outputStream.write(message.getBytes());
 					outputStream.flush();
 				}else {
-					BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(response.getFile()));
+					BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(message.getFile()));
 					int bufferSize=1024;
 					byte[] bufferArray=new byte[bufferSize];
 					int read = 0;

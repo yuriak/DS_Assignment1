@@ -1,8 +1,9 @@
 package org.aw.server;
 
 import org.apache.log4j.Logger;
+import org.aw.comman.Message;
 import org.aw.comman.Resource;
-import org.aw.comman.ResponseType;
+import org.aw.comman.MessageType;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -37,36 +38,38 @@ public class ServerCommandProcessor {
 		return processor;
 	}
 
-	public List<Response> processCommand(String command){
-		List<Response> responses = new ArrayList<Response>();
+	public List<Message> processCommand(String command){
+		List<Message> messages = new ArrayList<Message>();
 		try {
 			JSONObject jsonObject=new JSONObject(command);
 			String cmd=jsonObject.getString("command");
 			System.out.println(cmd);
 			switch (cmd){
-				case "PUBLISH": responses.addAll(publish(jsonObject));
+				case "PUBLISH": messages.addAll(publish(jsonObject));
 					break;
-				case "REMOVE": responses.addAll(remove(jsonObject));
+				case "REMOVE": messages.addAll(remove(jsonObject));
 					break;
-				case "SHARE":responses.addAll(share(jsonObject));
+				case "SHARE":
+					messages.addAll(share(jsonObject));
 					break;
-				case "FETCH":responses.addAll(fetch(jsonObject));
+				case "FETCH":
+					messages.addAll(fetch(jsonObject));
 					break;
-				case "EXCHANGE":responses.addAll(exchange(jsonObject));
+				case "EXCHANGE":
+					messages.addAll(exchange(jsonObject));
 					break;
 				default:
-					responses.addAll(sendErrorMessage("Invalid Command"));
+					messages.addAll(sendErrorMessage("Invalid Command"));
 			}
 		}catch (JSONException e){
 			return sendErrorMessage("Invalid Json String");
 		}finally {
-			return responses;
+			return messages;
 		}
 
 	}
 
-	private synchronized List<Response> publish(JSONObject jsonObject) {
-		List<Response> responses=new ArrayList<>();
+	private synchronized List<Message> publish(JSONObject jsonObject) {
 		if (!jsonObject.has("resource"))
 			return sendErrorMessage("missing resource");
 		JSONObject resourceObject=jsonObject.getJSONObject("resource");
@@ -90,8 +93,7 @@ public class ServerCommandProcessor {
 
 
 
-	private synchronized List<Response> remove(JSONObject jsonObject){
-		List<Response> responses = new ArrayList<>();
+	private synchronized List<Message> remove(JSONObject jsonObject){
 		if (!jsonObject.has("resource"))
 			return sendErrorMessage("missing resource");
 		JSONObject resourceObject = jsonObject.getJSONObject("resource");
@@ -109,43 +111,49 @@ public class ServerCommandProcessor {
 		return sendSuccessMessage();
 	}
 
-	private synchronized List<Response> share(JSONObject jsonObject){
-		List<Response> responses = new ArrayList<>();
-		if (!jsonObject.has("resource"))
-			return sendErrorMessage("missing resource");
-		if (!jsonObject.has("secret"))
-			return sendErrorMessage("cannot publish resource1");
+	private synchronized List<Message> share(JSONObject jsonObject){
+		if (!jsonObject.has("resource")||!jsonObject.has("secret"))
+			return sendErrorMessage("missing resource and/or secret");
 		if(!jsonObject.getString("secret").equals(ServerConfig.SECRET))
-			return sendErrorMessage("cannot publish resource2");
+			return sendErrorMessage("incorrect secret");
 		JSONObject resourceObject = jsonObject.getJSONObject("resource");
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource = Resource.parseJson(resourceObject);
 		if (resource == null || !resource.getUri().isAbsolute() || !resource.getUri().getScheme().equals("file")||resource.getUri().getAuthority()!=null ||resource.getOwner().equals("*"))
-			return sendErrorMessage("cannot share resource3");
+			return sendErrorMessage("cannot share resource");
 		File file=new File(resource.getUri().getPath());
-		if (!file.exists()||!file.isFile()) return sendErrorMessage("cannot publish resource4");
+		if (!file.exists()||!file.isFile()) return sendErrorMessage("cannot share resource");
 		List<Resource> resources = kernel.getResources();
 		if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner())))
-			return sendErrorMessage("cannot share resource5");
+			return sendErrorMessage("cannot share resource");
 		List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
 		if (sameResource.size() > 0) {
 			resources.set(resources.indexOf(sameResource.get(0)), resource);
 		} else {
 			resources.add(resource);
 		}
-		resources.forEach(re -> System.out.println(Resource.toJson(re).toString()));
+//		resources.forEach(re -> System.out.println(Resource.toJson(re).toString()));
 		return sendSuccessMessage();
 	}
 
 
-	private synchronized List<Response> query(JSONObject jsonObject){
-		List<Response> responses = new ArrayList<>();
+	private synchronized List<Message> query(JSONObject jsonObject){
+		List<Message> messages = new ArrayList<>();
+		if (!jsonObject.has("resourceTemplate")||!jsonObject.has("relay"))
+			return sendErrorMessage("missing resourceTemplate");
+		boolean relay=jsonObject.getBoolean("relay");
+		JSONObject resourceObject = jsonObject.getJSONObject("resourceTemplate");
+		if (!Resource.checkValidity(resourceObject)) return sendErrorMessage("invalid resourceTemplate");
+		Resource resource = Resource.parseJson(resourceObject);
+		if (resource==null|| resource.getOwner().equals("*"))
+			return sendErrorMessage("invalid resourceTemplate");
+
 		return null;
 	}
 
-	private List<Response>  fetch(JSONObject jsonObject){
-		List<Response> responses = new ArrayList<>();
+	private List<Message>  fetch(JSONObject jsonObject){
+		List<Message> messages = new ArrayList<>();
 		if (!jsonObject.has("resourceTemplate")) return sendErrorMessage("missing resourceTemplate");
 		JSONObject resourceObject=jsonObject.getJSONObject("resourceTemplate");
 		if (!Resource.checkValidity(resourceObject)) return sendErrorMessage("invalid resourceTemplate");
@@ -163,17 +171,16 @@ public class ServerCommandProcessor {
 		resource.setSize(file.length());
 		resource.setServer(kernel.getServer());
 		resourceObject=Resource.toJson(resource);
-		responses.addAll(sendSuccessMessage());
-		responses.add(new Response(ResponseType.MESSAGE,Resource.toJson(resource).toString(),null,null));
-		responses.add(new Response(ResponseType.FILE,null,null,file));
-		responses.add(new Response(ResponseType.MESSAGE,"{\"resultSize\":1}",null,null));
-		return responses;
+		messages.addAll(sendSuccessMessage());
+		messages.add(new Message(MessageType.STRING,Resource.toJson(resource).toString(),null,null));
+		messages.add(new Message(MessageType.FILE,null,null,file));
+		messages.add(new Message(MessageType.STRING,"{\"resultSize\":1}",null,null));
+		return messages;
 	}
 
 
 
-	private synchronized List<Response> exchange(JSONObject jsonObject){
-		List<Response> responses = new ArrayList<>();
+	private synchronized List<Message> exchange(JSONObject jsonObject){
 		if (!jsonObject.has("serverList"))return sendErrorMessage("missing or invalid server list");
 		JSONArray serverArray=jsonObject.getJSONArray("serverList");
 		for (int i = 0; i < serverArray.length(); i++) {
@@ -197,27 +204,27 @@ public class ServerCommandProcessor {
 	}
 
 
-	private static List<Response> sendErrorMessage(String message){
-		List<Response> responses=new ArrayList<>();
-		Response response=new Response();
-		response.setType(ResponseType.MESSAGE);
+	private static List<Message> sendErrorMessage(String message){
+		List<Message> messages =new ArrayList<>();
+		Message response=new Message();
+		response.setType(MessageType.STRING);
 		JSONObject jsonObject=new JSONObject();
 		jsonObject.put("response","error");
 		jsonObject.put("errorMessage",message);
 		response.setMessage(jsonObject.toString());
-		responses.add(response);
-		return responses;
+		messages.add(response);
+		return messages;
 	}
 
-	private static List<Response> sendSuccessMessage(){
-		List<Response> responses = new ArrayList<>();
-		Response response = new Response();
-		response.setType(ResponseType.MESSAGE);
+	private static List<Message> sendSuccessMessage(){
+		List<Message> messages = new ArrayList<>();
+		Message message = new Message();
+		message.setType(MessageType.STRING);
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("response", "success");
-		response.setMessage(jsonObject.toString());
-		responses.add(response);
-		return responses;
+		message.setMessage(jsonObject.toString());
+		messages.add(message);
+		return messages;
 	}
 
 }

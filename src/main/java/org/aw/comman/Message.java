@@ -1,14 +1,12 @@
-package org.aw.server;
-
-import org.aw.comman.ResponseType;
+package org.aw.comman;
 
 import java.io.File;
 
 /**
  * Created by YURI-AK on 2017/4/5.
  */
-public class Response {
-	private ResponseType type;
+public class Message {
+	private MessageType type;
 	private String message;
 	private byte[] bytes;
 
@@ -22,18 +20,18 @@ public class Response {
 
 	private File file;
 
-	public Response(){}
-	public Response(ResponseType type,String message,byte[] bytes,File file){
+	public Message(){}
+	public Message(MessageType type, String message, byte[] bytes, File file){
 		this.type=type;
 		this.message=message;
 		this.bytes=bytes;
 		this.file=file;
 	}
-	public ResponseType getType() {
+	public MessageType getType() {
 		return type;
 	}
 
-	public void setType(ResponseType type) {
+	public void setType(MessageType type) {
 		this.type = type;
 	}
 
