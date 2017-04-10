@@ -2,14 +2,13 @@ package org.aw.server;
 
 import org.apache.log4j.Logger;
 import org.aw.comman.Message;
-import org.aw.comman.Resource;
 import org.aw.comman.MessageType;
+import org.aw.comman.Resource;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +50,9 @@ public class ServerCommandProcessor {
 					break;
 				case "SHARE":
 					messages.addAll(share(jsonObject));
+					break;
+				case "QUERY":
+					messages.addAll(query(jsonObject));
 					break;
 				case "FETCH":
 					messages.addAll(fetch(jsonObject));
@@ -120,6 +122,7 @@ public class ServerCommandProcessor {
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource = Resource.parseJson(resourceObject);
+		resource.setServer(kernel.getServer());
 		if (resource == null || !resource.getUri().isAbsolute() || !resource.getUri().getScheme().equals("file")||resource.getUri().getAuthority()!=null ||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot share resource");
 		File file=new File(resource.getUri().getPath());
@@ -148,8 +151,50 @@ public class ServerCommandProcessor {
 		Resource resource = Resource.parseJson(resourceObject);
 		if (resource==null|| resource.getOwner().equals("*"))
 			return sendErrorMessage("invalid resourceTemplate");
-
-		return null;
+		List<Resource> resources = kernel.getResources();
+		List<Resource> candidates=new ArrayList<>();
+		for (Resource re:resources){
+			if ((resource.getChannel().equals(re.getChannel())) && (resource.getOwner().equals("") ? true : resource.getOwner().equals(re.getOwner())) &&
+							(resource.getTags().size() == 0 ? true : resource.getTags().stream().anyMatch(tag -> re.getTags().contains(tag))) &&
+							(resource.getUri().toString().equals("") ? true : resource.getUri().equals(re.getUri())) &&
+							((resource.getName().equals("") ? true : re.getName().contains(resource.getName())) || (resource.getDescription().equals("") ? true : re.getDescription().contains(resource.getDescription())))) {
+				try {
+					Resource candidateResource = re.clone();
+					if (!candidateResource.getOwner().equals(""))
+						candidateResource.setOwner("*");
+					candidateResource.setServer(kernel.getServer());
+					candidates.add(candidateResource);
+				} catch (CloneNotSupportedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		if (relay){
+			List<Server> servers=kernel.getServers();
+			for (Server server:servers){
+				if (server.equals(kernel.getServer())){
+					continue;
+				}
+				jsonObject.put("relay", false);
+				List<Message> results = kernel.getConnectionManager().establishConnection(server, new Message(MessageType.STRING, jsonObject.toString(), null, null));
+				if (results == null || results.size() == 0) {
+					continue;
+				}
+				results.forEach(result -> {
+					JSONObject resultObject = new JSONObject(result.getMessage());
+					if (Resource.checkValidity(resultObject)) {
+						Resource externalResource = Resource.parseJson(resultObject);
+						candidates.add(externalResource);
+					}
+				});
+			}
+		}
+		messages.addAll(sendSuccessMessage());
+		candidates.forEach(candidate->{
+			messages.add(new Message(MessageType.STRING, Resource.toJson(candidate).toString(),null,null));
+		});
+		messages.add(new Message(MessageType.STRING, "{\"resultSize\":" + candidates.size() + "}",null,null));
+		return messages;
 	}
 
 	private List<Message>  fetch(JSONObject jsonObject){
@@ -197,11 +242,6 @@ public class ServerCommandProcessor {
 		return sendSuccessMessage();
 	}
 
-	public static void main(String[] args) throws URISyntaxException {
-		URI uri = new URI("file:///E:/pathbc.txt");
-		File file = new File(uri.getPath());
-		System.out.println(file.exists());
-	}
 
 
 	private static List<Message> sendErrorMessage(String message){
@@ -214,6 +254,16 @@ public class ServerCommandProcessor {
 		response.setMessage(jsonObject.toString());
 		messages.add(response);
 		return messages;
+	}
+
+
+	public static void main(String[] args) throws URISyntaxException, CloneNotSupportedException {
+//		URI uri = new URI("");
+//		System.out.println(false&&false);
+//		File file = new File(uri.getPath());
+//		System.out.println(file.exists());
+		System.out.println("http://www.baidu.com".replaceAll("\\/","\\\\/"));
+		System.out.println("http:\\/\\/www.baidu.com".replaceAll("\\\\/","\\/"));
 	}
 
 	private static List<Message> sendSuccessMessage(){

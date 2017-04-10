@@ -1,11 +1,19 @@
 package org.aw.client;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.aw.comman.Message;
+import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
+import org.aw.server.ConnectionManager;
 import org.aw.server.Server;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -17,24 +25,31 @@ import java.util.List;
  */
 public class Test {
 	public static void main(String[] args) {
-//		publish("o1","c1","http://www.baidu.com","d1");
-//		publish("o1", "c1", "http://www.baidu.com/ada","d2");
-//		publish("o2", "c2", "http://www.baidu.com/ada/gds","d3");
-//		publish("o1", "c1", "http://www.baidu.com/ada","d4");
+//		publish("","","http://www.baidu.com","baidu","localhost",9888);
+//		publish("", "", "http://www.facebook.com","facebook", "localhost", 9888);
+//		publish("", "", "http://www.google.com","google", "localhost", 9889);
+//		publish("", "", "http://www.sina.com.cn","sina", "localhost", 9889);
+//		publish("", "", "http://www.sohu.com.cn", "sohu", "localhost", 9890);
+//		share("", "", "file:///D:/IIJavaWorkspace/EZShare.zip", "EZShare", "hello", "localhost", 9890);
+//		share("", "", "file:///D:/IIJavaWorkspace/UltraCompare.zip", "UltraCompare_null", "hello", "localhost", 9891);
+//		share("", "", "file:///D:/IIJavaWorkspace/EZShare1.zip", "EZShare1", "hello", "localhost", 9891);
+//		share("", "", "file:///D:/IIJavaWorkspace/UltraCompare.zip", "UltraCompare", "hello", "localhost", 9892);
+//		share("", "", "file:///D:/IIJavaWorkspace/UltraCompare1.zip", "UltraCompare1", "hello", "localhost", 9892);
 //		remove("o1","c1", "http://www.baidu.com");
 //		remove("o2", "c2", "http://www.baidu.com/ada/gds");
 //		remove("o2", "c2", "http://www.baidu.com/ada/gds");
 //		remove("o1", "c1", "http://www.baidu.com/ada");
-//		share("o1","c1","file:///D:/IIJavaWorkspace/EZShare.zip","a file","hello");
-//		fetch("o1", "c1", "file:///D:/IIJavaWorkspace/EZShare.zip", "a file");
+//		share("","","file:///D:/IIJavaWorkspace/EZShare.zip","a file","hello");
+//		fetch("", "", "file:///usr/local/share/ezshare/photo.jpg", "Secret agent photo :-)");
 //		remove("o1","c1","file:///E:/OnKeyDetector.log");
-		exchange();
+//		exchange();
+		query("","","","","",true,"localhost",9888);
 	}
 
-	public static void publish(String owner,String channel,String uri,String description){
+	public static void publish(String owner,String channel,String uri,String description,String address,int port){
 		Socket socket=null;
 		try {
-			socket = new Socket("localhost", 9888);
+			socket = new Socket(address, port);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			Resource resource = new Resource();
@@ -110,15 +125,14 @@ public class Test {
 		}
 	}
 
-	public static void share(String owner, String channel, String uri, String description,String secret){
+	public static void share(String owner, String channel, String uri, String description,String secret,String address,int port){
 		Socket socket = null;
 		try {
-			socket = new Socket("localhost", 9888);
+			socket = new Socket(address, port);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			Resource resource = new Resource();
 			resource.setName(owner + "|" + channel + "|" + uri);
-			resource.setTags(new ArrayList<>());
 			resource.setUri(new URI(uri));
 			resource.setDescription(description);
 			resource.setChannel(channel);
@@ -158,54 +172,58 @@ public class Test {
 	public static void fetch(String owner, String channel, String uri,String description){
 		Socket socket = null;
 		try {
-			socket = new Socket("localhost", 9888);
+			socket = new Socket("sunrise.cis.unimelb.edu.au", 3780);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			Resource resource = new Resource();
-			resource.setName(owner + "|" + channel + "|" + uri);
-			resource.setTags(new ArrayList<>());
+//			resource.setName(owner + "|" + channel + "|" + uri);
+//			resource.setTags(new ArrayList<>());
 			resource.setUri(new URI(uri));
 			resource.setDescription(description);
 			resource.setChannel(channel);
 			resource.setOwner(owner);
-			List<String> tagList = new ArrayList<>();
-			tagList.add(owner);
-			tagList.add(channel);
-			tagList.add(uri);
-			tagList.add(description);
-			resource.setTags(tagList);
+//			List<String> tagList = new ArrayList<>();
+//			tagList.add(owner);
+//			tagList.add(channel);
+//			tagList.add(uri);
+//			tagList.add(description);
+//			resource.setTags(tagList);
 			JSONObject resourceObject = Resource.toJson(resource);
 			JSONObject request = new JSONObject();
 			request.put("resourceTemplate", resourceObject);
 			request.put("command", "FETCH");
 			String message = request.toString();
+			System.out.println(message);
 			outputStream.writeUTF(message);
 			outputStream.flush();
 			System.out.println(inputStream.readUTF());
-			JSONObject resourceInfo = new JSONObject(inputStream.readUTF());
+			String resourceInfoStr=inputStream.readUTF();
+			System.out.println(resourceInfoStr);
+			JSONObject resourceInfo = new JSONObject(resourceInfoStr);
+			System.out.println(resourceInfo.toString());
 			URI uri1 = new URI(resourceInfo.getString("uri"));
 			Long size=resourceInfo.getLong("resourceSize");
 			String fileName = uri1.getPath().split("/")[uri1.getPath().split("/").length - 1];
 			File file = new File(fileName);
 			file.createNewFile();
-//			FileUtils.writeByteArrayToFile(file, IOUtils.toByteArray(inputStream, size));
-			int bufferSize=1024;
-			byte[] buffer = new byte[bufferSize];
-			int read;
-			FileOutputStream fileOutputStream=new FileOutputStream(file);
-			while(size>0){
-				if (size>=bufferSize){
-					inputStream.read(buffer);
-					fileOutputStream.write(buffer);
-				}else {
-					bufferSize = Integer.valueOf(String.valueOf(size));
-					buffer = new byte[bufferSize];
-					inputStream.read(buffer);
-					fileOutputStream.write(buffer);
-				}
-				size -= bufferSize;
-			}
-			fileOutputStream.close();
+			FileUtils.writeByteArrayToFile(file, IOUtils.toByteArray(inputStream, size));
+//			int bufferSize=1024;
+//			byte[] buffer = new byte[bufferSize];
+//			int read;
+//			FileOutputStream fileOutputStream=new FileOutputStream(file);
+//			while(size>0){
+//				if (size>=bufferSize){
+//					inputStream.read(buffer);
+//					fileOutputStream.write(buffer);
+//				}else {
+//					bufferSize = Integer.valueOf(String.valueOf(size));
+//					buffer = new byte[bufferSize];
+//					inputStream.read(buffer);
+//					fileOutputStream.write(buffer);
+//				}
+//				size -= bufferSize;
+//			}
+//			fileOutputStream.close();
 			System.out.println(inputStream.readUTF());
 			inputStream.close();
 			outputStream.close();
@@ -260,5 +278,31 @@ public class Test {
 				}
 			}
 		}
+	}
+
+	public static void query(String owner,String channel, String description,String name,String uri,boolean relay,String address,int port){
+		JSONObject jsonObject=new JSONObject();
+		Resource resource=new Resource();
+		resource.setOwner(owner);
+		resource.setChannel(channel);
+		resource.setDescription(description);
+		resource.setName(name);
+		List<String> tagList=new ArrayList<>();
+//		tagList.add("linux");
+		resource.setTags(tagList);
+//		try {
+//			resource.setUri(new URI("http://*.com"));
+//		} catch (URISyntaxException e) {
+//			e.printStackTrace();
+//		}
+		JSONObject resourceObject = Resource.toJson(resource);
+		jsonObject.put("resourceTemplate",resourceObject);
+		jsonObject.put("relay",relay);
+		jsonObject.put("command","QUERY");
+		System.out.println(jsonObject);
+		ConnectionManager connectionManager=new ConnectionManager();
+//		List<Message> messages = connectionManager.establishConnection(new Server("sunrise.cis.unimelb.edu.au", 3780), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+		List<Message> messages = connectionManager.establishConnection(new Server(address, port), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+		messages.forEach(message -> System.out.println(message.getMessage()));
 	}
 }

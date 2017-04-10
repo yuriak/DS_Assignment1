@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * Created by YURI-AK on 2017/4/5.
  */
-public class Resource {
+public class Resource implements Cloneable {
     private String name;
     private String description;
     private List<String> tags;
@@ -160,4 +160,28 @@ public class Resource {
         return resource.getOwner().equals(this.owner)&&resource.getChannel().equals(this.channel)&&resource.getUri().equals(this.uri);
     }
 
+    @Override
+    public Resource clone() throws CloneNotSupportedException {
+        Resource copiedResource=new Resource();
+        copiedResource.setName(new String(this.getName()));
+        copiedResource.setDescription(new String(this.getDescription()));
+        copiedResource.setChannel(new String(this.getChannel()));
+        copiedResource.setOwner(new String(this.getOwner()));
+        try {
+            copiedResource.setUri(new URI(this.getUri().toString()));
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+        if (this.getServer()!=null){
+            copiedResource.setServer(new Server(this.getServer().getHostname(), this.getServer().getPort()));
+        }
+        List<String> copiedTags = new ArrayList<>();
+        if (this.getTags()!=null){
+            List<String> tags = this.getTags();
+            tags.forEach(tag -> copiedTags.add(tag));
+        }
+        copiedResource.setTags(copiedTags);
+        copiedResource.setSize(this.size);
+        return copiedResource;
+    }
 }

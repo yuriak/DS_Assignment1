@@ -135,17 +135,17 @@ public class ServerKernel {
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", serverArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
-				Message response = connectionManager.establishConnection(servers.get(r), message);
-				if (response==null){
+				List<Message> messages = connectionManager.establishConnection(servers.get(r), message);
+				if (messages.size()==0){
 					diedServer.add(servers.get(r));
 				}else {
-					JSONObject resultObject = new JSONObject(response.getMessage());
+					JSONObject resultObject = new JSONObject(messages.get(0).getMessage());
 					if (!resultObject.has("response") && resultObject.getString("response").equals("success"))
 						diedServer.add(servers.get(r));
 				}
 			});
 			servers.removeAll(diedServer);
-			System.out.println(servers);
+//			System.out.println(servers);
 		}
 	}
 }

@@ -9,6 +9,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -43,16 +45,21 @@ public class ConnectionManager {
 		return executor.getActiveCount();
 	}
 
-	public Message establishConnection(Server server, Message message) {
+	public List<Message> establishConnection(Server server, Message message) {
 		Socket socket = null;
 		Message response=null;
+		List<Message> messages=new ArrayList<>();
 		try {
 			socket=new Socket(server.getAddress(),server.getPort());
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage());
 			outputStream.flush();
-			response=new Message(MessageType.STRING,inputStream.readUTF(),null,null);
+			String data=null;
+			while ((data=inputStream.readUTF())!=null){
+				response = new Message(MessageType.STRING, data, null, null);
+				messages.add(response);
+			}
 		} catch (IOException e) {
 			logger.info("Lost connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 		} finally {
@@ -64,7 +71,7 @@ public class ConnectionManager {
 			} catch (IOException e) {
 
 			}
-			return response;
+			return messages;
 		}
 	}
 }
