@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
+import org.aw.comman.ServerBean;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -122,7 +123,7 @@ public class ServerCommandProcessor {
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource = Resource.parseJson(resourceObject);
-		resource.setServer(kernel.getServer());
+		resource.setServerBean(kernel.getMyServer());
 		if (resource == null || !resource.getUri().isAbsolute() || !resource.getUri().getScheme().equals("file")||resource.getUri().getAuthority()!=null ||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot share resource");
 		File file=new File(resource.getUri().getPath());
@@ -154,15 +155,15 @@ public class ServerCommandProcessor {
 		List<Resource> resources = kernel.getResources();
 		List<Resource> candidates=new ArrayList<>();
 		for (Resource re:resources){
-			if ((resource.getChannel().equals(re.getChannel())) && (resource.getOwner().equals("") ? true : resource.getOwner().equals(re.getOwner())) &&
-							(resource.getTags().size() == 0 ? true : resource.getTags().stream().anyMatch(tag -> re.getTags().contains(tag))) &&
-							(resource.getUri().toString().equals("") ? true : resource.getUri().equals(re.getUri())) &&
-							((resource.getName().equals("") ? true : re.getName().contains(resource.getName())) || (resource.getDescription().equals("") ? true : re.getDescription().contains(resource.getDescription())))) {
+			if ((resource.getChannel().equals(re.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(re.getOwner())) &&
+							(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> re.getTags().contains(tag))) &&
+							(resource.getUri().toString().equals("") || resource.getUri().equals(re.getUri())) &&
+							((resource.getName().equals("") || re.getName().contains(resource.getName())) || (resource.getDescription().equals("") || re.getDescription().contains(resource.getDescription())))) {
 				try {
 					Resource candidateResource = re.clone();
 					if (!candidateResource.getOwner().equals(""))
 						candidateResource.setOwner("*");
-					candidateResource.setServer(kernel.getServer());
+					candidateResource.setServerBean(kernel.getMyServer());
 					candidates.add(candidateResource);
 				} catch (CloneNotSupportedException e) {
 					e.printStackTrace();
@@ -170,14 +171,14 @@ public class ServerCommandProcessor {
 			}
 		}
 		if (relay){
-			List<Server> servers=kernel.getServers();
-			for (Server server:servers){
-				if (server.equals(kernel.getServer())){
+			List<ServerBean> serverBeen =kernel.getServerList();
+			for (ServerBean serverBean : serverBeen){
+				if (serverBean.equals(kernel.getMyServer())){
 					continue;
 				}
 				jsonObject.put("relay", false);
 				jsonObject.getJSONObject("resourceTemplate").put("owner","").put("channel","");
-				List<Message> results = kernel.getConnectionManager().establishConnection(server, new Message(MessageType.STRING, jsonObject.toString(), null, null));
+				List<Message> results = kernel.getConnectionManager().establishConnection(serverBean, new Message(MessageType.STRING, jsonObject.toString(), null, null));
 				if (results == null || results.size() == 0) {
 					continue;
 				}
@@ -215,7 +216,7 @@ public class ServerCommandProcessor {
 			return sendErrorMessage("cannot fetch resource");
 		resource.setOwner("*");
 		resource.setSize(file.length());
-		resource.setServer(kernel.getServer());
+		resource.setServerBean(kernel.getMyServer());
 		resourceObject=Resource.toJson(resource);
 		messages.addAll(sendSuccessMessage());
 		messages.add(new Message(MessageType.STRING,Resource.toJson(resource).toString(),null,null));
@@ -234,9 +235,9 @@ public class ServerCommandProcessor {
 			if (!serverObject.has("hostname")||!serverObject.has("port")) continue;
 			String hostname=serverObject.getString("hostname");
 			int port=serverObject.getInt("port");
-			Server server=new Server(hostname,port);
-			if (!kernel.getServers().contains(server)&&!server.equals(kernel.getServer())){
-				kernel.getServers().add(server);
+			ServerBean serverBean =new ServerBean(hostname,port);
+			if (!kernel.getServerList().contains(serverBean)&&!serverBean.equals(kernel.getMyServer())){
+				kernel.getServerList().add(serverBean);
 			}
 		}
 //		System.out.println("receive: "+serverArray.toString());
@@ -260,11 +261,10 @@ public class ServerCommandProcessor {
 
 	public static void main(String[] args) throws URISyntaxException, CloneNotSupportedException {
 //		URI uri = new URI("");
-//		System.out.println(false&&false);
 //		File file = new File(uri.getPath());
 //		System.out.println(file.exists());
-		System.out.println("http://www.baidu.com".replaceAll("\\/","\\\\/"));
-		System.out.println("http:\\/\\/www.baidu.com".replaceAll("\\\\/","\\/"));
+//		System.out.println("http://www.baidu.com".replaceAll("\\/","\\\\/"));
+//		System.out.println("http:\\/\\/www.baidu.com".replaceAll("\\\\/","\\/"));
 	}
 
 	private static List<Message> sendSuccessMessage(){

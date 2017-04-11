@@ -6,7 +6,7 @@ import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
 import org.aw.server.ConnectionManager;
-import org.aw.server.Server;
+import org.aw.comman.ServerBean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -248,16 +248,16 @@ public class Test {
 			socket = new Socket("localhost", 9888);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-			List<Server> servers=new ArrayList<>();
-			Server server1=new Server("localhost",9889);
-			Server server2=new Server("localhost",9890);
-			Server server3 = new Server("localhost", 9891);
-			Server server4 = new Server("localhost", 9892);
-			servers.add(server1);
-			servers.add(server2);
-			servers.add(server3);
-			servers.add(server4);
-			JSONArray serverArray=new JSONArray(servers);
+			List<ServerBean> serverBeen =new ArrayList<>();
+			ServerBean serverBean1 =new ServerBean("localhost",9889);
+			ServerBean serverBean2 =new ServerBean("localhost",9890);
+			ServerBean serverBean3 = new ServerBean("localhost", 9891);
+			ServerBean serverBean4 = new ServerBean("localhost", 9892);
+			serverBeen.add(serverBean1);
+			serverBeen.add(serverBean2);
+			serverBeen.add(serverBean3);
+			serverBeen.add(serverBean4);
+			JSONArray serverArray=new JSONArray(serverBeen);
 			JSONObject request = new JSONObject();
 			request.put("serverList", serverArray);
 			request.put("command", "EXCHANGE");
@@ -301,8 +301,8 @@ public class Test {
 		jsonObject.put("command","QUERY");
 		System.out.println(jsonObject);
 		ConnectionManager connectionManager=new ConnectionManager();
-//		List<Message> messages = connectionManager.establishConnection(new Server("sunrise.cis.unimelb.edu.au", 3780), new Message(MessageType.STRING, jsonObject.toString(), null, null));
-		List<Message> messages = connectionManager.establishConnection(new Server(address, port), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+//		List<Message> messages = connectionManager.establishConnection(new ServerBean("sunrise.cis.unimelb.edu.au", 3780), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+		List<Message> messages = connectionManager.establishConnection(new ServerBean(address, port), new Message(MessageType.STRING, jsonObject.toString(), null, null));
 		messages.forEach(message -> System.out.println(message.getMessage()));
 	}
 }

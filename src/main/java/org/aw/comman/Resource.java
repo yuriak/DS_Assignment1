@@ -1,6 +1,5 @@
 package org.aw.comman;
 
-import org.aw.server.Server;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -67,17 +66,17 @@ public class Resource implements Cloneable {
         this.owner = owner;
     }
 
-    public Server getServer() {
-        return server;
+    public ServerBean getServerBean() {
+        return serverBean;
     }
 
-    public void setServer(Server server) {
-        this.server = server;
+    public void setServerBean(ServerBean serverBean) {
+        this.serverBean = serverBean;
     }
 
     private String channel;
     private String owner;
-    private Server server;
+    private ServerBean serverBean;
 
     public long getSize() {
         return size;
@@ -105,7 +104,7 @@ public class Resource implements Cloneable {
         jsonObject.put("uri",resource.getUri()==null?"":resource.getUri().toString());
         jsonObject.put("channel",resource.getChannel()==null?"":resource.getChannel());
         jsonObject.put("owner",resource.getOwner()==null?"":resource.getOwner());
-        jsonObject.put("ezserver",resource.getServer()==null?"":resource.getServer().toString());
+        jsonObject.put("ezserver",resource.getServerBean()==null?"":resource.getServerBean().toString());
         if (resource.getSize()>0){
             jsonObject.put("resourceSize",resource.getSize());
         }
@@ -128,11 +127,11 @@ public class Resource implements Cloneable {
         String owner=resourceObject.getString("owner");
         String channel=resourceObject.getString("channel");
         String ezServerString=resourceObject.getString("ezserver");
-        Server server=null;
+        ServerBean serverBean =null;
         if (!ezServerString.equals("")){
             String ezHost = ezServerString.split(":")[0];
             int port = Integer.parseInt(ezServerString.split(":")[1]);
-            server = new Server(ezHost, port);
+            serverBean = new ServerBean(ezHost, port);
         }
         JSONArray tagArray=resourceObject.getJSONArray("tags");
         List<String> tagList=new ArrayList<>();
@@ -146,7 +145,7 @@ public class Resource implements Cloneable {
         resource.setOwner(owner);
         resource.setUri(uri);
         resource.setTags(tagList);
-        resource.setServer(server);
+        resource.setServerBean(serverBean);
         if (resourceObject.has("resourceSize")){
             resource.setSize(resourceObject.getInt("resourceSize"));
         }
@@ -172,8 +171,8 @@ public class Resource implements Cloneable {
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-        if (this.getServer()!=null){
-            copiedResource.setServer(new Server(this.getServer().getHostname(), this.getServer().getPort()));
+        if (this.getServerBean()!=null){
+            copiedResource.setServerBean(new ServerBean(this.getServerBean().getHostname(), this.getServerBean().getPort()));
         }
         List<String> copiedTags = new ArrayList<>();
         if (this.getTags()!=null){

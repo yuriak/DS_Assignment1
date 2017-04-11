@@ -4,29 +4,27 @@ import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
+import org.aw.comman.ServerBean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Created by YURI-AK on 2017/4/5.
  */
 public class ServerKernel {
-	public Server getServer() {
-		return server;
+	public ServerBean getMyServer() {
+		return myServer;
 	}
 
-	public void setServer(Server server) {
-		this.server = server;
+	public void setMyServer(ServerBean myServer) {
+		this.myServer = myServer;
 	}
 
-	private Server server;
+	private ServerBean myServer;
 	private int status;
 
 	public ConnectionManager getConnectionManager() {
@@ -39,12 +37,12 @@ public class ServerKernel {
 
 	private ConnectionManager connectionManager;
 	private List<Resource> resources;
-	private List<Server> servers;
+	private List<ServerBean> serverList;
 	private static ServerKernel serverKernel;
 	Logger logger=Logger.getLogger(ServerKernel.class);
 	private ServerKernel() {
 		resources=new ArrayList<>();
-		servers=new ArrayList<>();
+		serverList =new ArrayList<>();
 	}
 
 	public static ServerKernel getInstance() {
@@ -58,27 +56,17 @@ public class ServerKernel {
 		return serverKernel;
 	}
 
-	public void initServer(Server server, boolean debug, int connectionInterval, int exchangeInterval,String hostname,String secret){
-		this.server=server;
-		servers.add(server);
-		ServerConfig.DEBUG =debug;
-		ServerConfig.CONNECTION_INTERVAL =connectionInterval;
-		ServerConfig.EXCHANGE_INTERVAL=exchangeInterval;
-		try {
-			ServerConfig.HOST_NAME=(hostname==null? InetAddress.getLocalHost().getHostName().toString():hostname);
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-			ServerConfig.HOST_NAME="UnknowHost";
-		}
-		ServerConfig.SECRET = (secret == null ? UUID.randomUUID().toString() : secret);
+	public void initServer(){
+		this.myServer = new ServerBean(ServerConfig.HOST_NAME,ServerConfig.PORT);
+		serverList.add(myServer);
 		connectionManager =new ConnectionManager();
-		logger.info("init server: "+server.getHostname()+":"+server.getPort());
+		logger.info("init myServer: "+ myServer.getHostname()+":"+ myServer.getPort());
 	}
 
 	public void startServer(){
 		Thread listenThread = new Thread(new Runnable() {
 			public void run() {
-				connectionManager.handleConnection(server);
+				connectionManager.handleConnection(myServer);
 				logger.info("start to handle connection");
 			}
 		});
@@ -108,13 +96,12 @@ public class ServerKernel {
 		this.resources = resources;
 	}
 
-	public List<Server> getServers() {
-		return servers;
+	public List<ServerBean> getServerList() {
+		return serverList;
 	}
 
-	public void setServers(List<Server> servers) {
-		this.servers = servers;
-
+	public void setServerList(List<ServerBean> serverList) {
+		this.serverList = serverList;
 	}
 
 	private void exchangeServers(){
@@ -124,28 +111,28 @@ public class ServerKernel {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			if (servers.size() == 0) {
+			if (serverList.size() == 0) {
 				continue;
 			}
 			Random random = new Random();
-			List<Server> diedServer = new ArrayList<>();
-			random.ints(0, servers.size()).distinct().limit(servers.size() / 2).forEach(r -> {
+			List<ServerBean> diedServer = new ArrayList<>();
+			random.ints(0, serverList.size()).distinct().limit(serverList.size() / 2).forEach(r -> {
 				JSONObject messageObject = new JSONObject();
-				JSONArray serverArray = new JSONArray(servers);
+				JSONArray serverArray = new JSONArray(serverList);
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", serverArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
-				List<Message> messages = connectionManager.establishConnection(servers.get(r), message);
+				List<Message> messages = connectionManager.establishConnection(serverList.get(r), message);
 				if (messages.size()==0){
-					diedServer.add(servers.get(r));
+					diedServer.add(serverList.get(r));
 				}else {
 					JSONObject resultObject = new JSONObject(messages.get(0).getMessage());
 					if (!resultObject.has("response") && resultObject.getString("response").equals("success"))
-						diedServer.add(servers.get(r));
+						diedServer.add(serverList.get(r));
 				}
 			});
-			servers.removeAll(diedServer);
-//			System.out.println(servers);
+			serverList.removeAll(diedServer);
+			logger.debug(serverList);
 		}
 	}
 }

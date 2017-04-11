@@ -3,6 +3,7 @@ package org.aw.server;
 import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.MessageType;
+import org.aw.comman.ServerBean;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -26,9 +27,9 @@ public class ConnectionManager {
 		executor = new ThreadPoolExecutor(30, 30, 200, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
 	}
 
-	public void handleConnection(Server server) {
+	public void handleConnection(ServerBean serverBean) {
 		try {
-			ServerSocket serverSocket = new ServerSocket(server.getPort());
+			ServerSocket serverSocket = new ServerSocket(serverBean.getPort());
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
 				clientSocket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
@@ -45,12 +46,13 @@ public class ConnectionManager {
 		return executor.getActiveCount();
 	}
 
-	public List<Message> establishConnection(Server server, Message message) {
+	public List<Message> establishConnection(ServerBean serverBean, Message message) {
 		Socket socket = null;
 		Message response=null;
 		List<Message> messages=new ArrayList<>();
 		try {
-			socket=new Socket(server.getAddress(),server.getPort());
+			socket=new Socket(serverBean.getAddress(), serverBean.getPort());
+			socket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage());

@@ -1,60 +1,47 @@
 package org.aw.server;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import org.apache.commons.cli.*;
 
 /**
- * Created by YURI-AK on 2017/4/5.
+ * Created by YuriAntonov on 2017/4/11.
  */
 public class Server {
-
-	private String hostname;
-	private int port;
-
-	public InetAddress getAddress() {
-		return address;
-	}
-
-	public void setAddress(InetAddress address) {
-		this.address = address;
-	}
-
-	private InetAddress address;
-
-	public Server(String hostname,int port){
-		this.hostname=hostname;
-		this.port=port;
+	public static void main(String[] args) {
+		Options options=new Options();
+		options.addOption("advertisedhostname",true,"advertised hostname");
+		options.addOption("connectionintervallimit",true,"connection interval limit in seconds");
+		options.addOption("exchangeinterval",true,"exchange interval in seconds");
+		options.addOption("port",true,"server port, an integer");
+		options.addOption("secret",true,"secret");
+		options.addOption("debug",true,"print debug information");
+		CommandLineParser parser=new DefaultParser();
+		CommandLine cmd=null;
 		try {
-			this.address=InetAddress.getByName(hostname);
-		} catch (UnknownHostException e) {
+			cmd=parser.parse(options,args);
+		} catch (ParseException e) {
 			e.printStackTrace();
+			return;
 		}
-	}
-	public int getPort() {
-		return port;
-	}
-
-	public void setPort(int port) {
-		this.port = port;
-	}
-
-	public String getHostname() {
-		return hostname;
-	}
-
-	public void setHostname(String hostname) {
-		this.hostname = hostname;
-	}
-
-	@Override
-	public String toString() {
-		return this.hostname+":"+this.port;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (!(obj instanceof Server)) return false;
-		Server server= (Server) obj;
-		return this.address.equals(server.getAddress())&&this.port==server.getPort();
+		if (cmd.hasOption("advertisedhostname")){
+			ServerConfig.HOST_NAME=cmd.getOptionValue("advertisedhostname");
+		}
+		if (cmd.hasOption("connectionintervallimit")){
+			ServerConfig.CONNECTION_INTERVAL=(int)Double.parseDouble(cmd.getOptionValue("connectionintervallimit"))*1000;
+		}
+		if (cmd.hasOption("exchangeinterval")){
+			ServerConfig.EXCHANGE_INTERVAL=(int)Double.parseDouble(cmd.getOptionValue("exchangeinterval"))*1000;
+		}
+		if (cmd.hasOption("port")){
+			ServerConfig.PORT=Integer.parseInt(cmd.getOptionValue("port"));
+		}
+		if (cmd.hasOption("secret")){
+			ServerConfig.SECRET=cmd.getOptionValue("secret");
+		}
+		if (cmd.hasOption("debug")){
+			ServerConfig.DEBUG=Boolean.parseBoolean(cmd.getOptionValue("debug"));
+		}
+		ServerKernel kernel = ServerKernel.getInstance();
+		kernel.initServer();
+		kernel.startServer();
 	}
 }
