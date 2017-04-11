@@ -43,7 +43,7 @@ public class Test {
 //		fetch("", "", "file:///usr/local/share/ezshare/photo.jpg", "Secret agent photo :-)");
 //		remove("o1","c1","file:///E:/OnKeyDetector.log");
 //		exchange();
-		query("","","","","",true,"localhost",9888);
+//		query("","","","","",true,"localhost",9888);
 	}
 
 	public static void publish(String owner,String channel,String uri,String description,String address,int port){

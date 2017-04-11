@@ -176,6 +176,7 @@ public class ServerCommandProcessor {
 					continue;
 				}
 				jsonObject.put("relay", false);
+				jsonObject.getJSONObject("resourceTemplate").put("owner","").put("channel","");
 				List<Message> results = kernel.getConnectionManager().establishConnection(server, new Message(MessageType.STRING, jsonObject.toString(), null, null));
 				if (results == null || results.size() == 0) {
 					continue;
