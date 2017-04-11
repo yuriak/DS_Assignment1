@@ -5,7 +5,7 @@ import org.apache.commons.io.IOUtils;
 import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
-import org.aw.server.ConnectionManager;
+import org.aw.server.ServerConnectionManager;
 import org.aw.comman.ServerBean;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -300,9 +300,9 @@ public class Test {
 		jsonObject.put("relay",relay);
 		jsonObject.put("command","QUERY");
 		System.out.println(jsonObject);
-		ConnectionManager connectionManager=new ConnectionManager();
-//		List<Message> messages = connectionManager.establishConnection(new ServerBean("sunrise.cis.unimelb.edu.au", 3780), new Message(MessageType.STRING, jsonObject.toString(), null, null));
-		List<Message> messages = connectionManager.establishConnection(new ServerBean(address, port), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+		ServerConnectionManager serverConnectionManager =new ServerConnectionManager();
+//		List<Message> messages = serverConnectionManager.establishConnection(new ServerBean("sunrise.cis.unimelb.edu.au", 3780), new Message(MessageType.STRING, jsonObject.toString(), null, null));
+		List<Message> messages = serverConnectionManager.establishConnection(new ServerBean(address, port), new Message(MessageType.STRING, jsonObject.toString(), null, null));
 		messages.forEach(message -> System.out.println(message.getMessage()));
 	}
 }

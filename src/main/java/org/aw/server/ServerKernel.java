@@ -27,15 +27,15 @@ public class ServerKernel {
 	private ServerBean myServer;
 	private int status;
 
-	public ConnectionManager getConnectionManager() {
-		return connectionManager;
+	public ServerConnectionManager getServerConnectionManager() {
+		return serverConnectionManager;
 	}
 
-	public void setConnectionManager(ConnectionManager connectionManager) {
-		this.connectionManager = connectionManager;
+	public void setServerConnectionManager(ServerConnectionManager serverConnectionManager) {
+		this.serverConnectionManager = serverConnectionManager;
 	}
 
-	private ConnectionManager connectionManager;
+	private ServerConnectionManager serverConnectionManager;
 	private List<Resource> resources;
 	private List<ServerBean> serverList;
 	private static ServerKernel serverKernel;
@@ -59,14 +59,14 @@ public class ServerKernel {
 	public void initServer(){
 		this.myServer = new ServerBean(ServerConfig.HOST_NAME,ServerConfig.PORT);
 		serverList.add(myServer);
-		connectionManager =new ConnectionManager();
+		serverConnectionManager =new ServerConnectionManager();
 		logger.info("init myServer: "+ myServer.getHostname()+":"+ myServer.getPort());
 	}
 
 	public void startServer(){
 		Thread listenThread = new Thread(new Runnable() {
 			public void run() {
-				connectionManager.handleConnection(myServer);
+				serverConnectionManager.handleConnection(myServer);
 				logger.info("start to handle connection");
 			}
 		});
@@ -122,7 +122,7 @@ public class ServerKernel {
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", serverArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
-				List<Message> messages = connectionManager.establishConnection(serverList.get(r), message);
+				List<Message> messages = serverConnectionManager.establishConnection(serverList.get(r), message);
 				if (messages.size()==0){
 					diedServer.add(serverList.get(r));
 				}else {

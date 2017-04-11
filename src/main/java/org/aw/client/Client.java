@@ -1,11 +1,15 @@
 package org.aw.client;
 
-import org.apache.commons.cli.Options;
+import org.apache.commons.cli.*;
+import org.apache.log4j.Logger;
 
 /**
  * Created by YuriAntonov on 2017/4/11.
  */
 public class Client {
+
+	private static Logger logger=Logger.getLogger(Client.class);
+
 	public static void main(String[] args) {
 		Options options=new Options();
 		options.addOption("channel",true,"channel");
@@ -25,7 +29,15 @@ public class Client {
 		options.addOption("share","share resource on server");
 		options.addOption("tags",true,"resource tags, tag1,tag2,tag3,...");
 		options.addOption("uri",true,"resource URI");
-		
-		
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = null;
+		try {
+			cmd = parser.parse(options, args);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			return;
+		}
+		ClientKernel kernel=new ClientKernel();
+		kernel.processCommand(cmd);
 	}
 }

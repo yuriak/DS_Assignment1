@@ -178,7 +178,7 @@ public class ServerCommandProcessor {
 				}
 				jsonObject.put("relay", false);
 				jsonObject.getJSONObject("resourceTemplate").put("owner","").put("channel","");
-				List<Message> results = kernel.getConnectionManager().establishConnection(serverBean, new Message(MessageType.STRING, jsonObject.toString(), null, null));
+				List<Message> results = kernel.getServerConnectionManager().establishConnection(serverBean, new Message(MessageType.STRING, jsonObject.toString(), null, null));
 				if (results == null || results.size() == 0) {
 					continue;
 				}

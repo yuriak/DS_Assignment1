@@ -19,11 +19,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by YURI-AK on 2017/4/5.
  */
-public class ConnectionManager {
-	Logger logger=Logger.getLogger(ConnectionManager.class);
+public class ServerConnectionManager {
+	Logger logger=Logger.getLogger(ServerConnectionManager.class);
 
 	private ThreadPoolExecutor executor;
-	public ConnectionManager() {
+	public ServerConnectionManager() {
 		executor = new ThreadPoolExecutor(30, 30, 200, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
 	}
 

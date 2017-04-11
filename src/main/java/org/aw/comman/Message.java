@@ -27,6 +27,10 @@ public class Message {
 		this.bytes=bytes;
 		this.file=file;
 	}
+	public Message(String message){
+		this.type=MessageType.STRING;
+		this.message=message;
+	}
 	public MessageType getType() {
 		return type;
 	}
