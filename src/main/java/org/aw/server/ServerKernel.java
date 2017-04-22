@@ -5,8 +5,10 @@ import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.Resource;
 import org.aw.comman.ServerBean;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -117,8 +119,15 @@ public class ServerKernel {
 			Random random = new Random();
 			List<ServerBean> diedServer = new ArrayList<>();
 			random.ints(0, serverList.size()).distinct().limit(serverList.size() / 2).forEach(r -> {
+				
 				JSONObject messageObject = new JSONObject();
-				JSONArray serverArray = new JSONArray(serverList);
+				JSONArray serverArray = new JSONArray();
+				serverList.forEach(server->{
+					JSONObject serverObject=new JSONObject();
+					serverObject.put("hostname",server.getHostname());
+					serverObject.put("port",server.getPort());
+					serverArray.add(serverObject);
+				});
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", serverArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
@@ -126,11 +135,17 @@ public class ServerKernel {
 				if (messages.size()==0){
 					diedServer.add(serverList.get(r));
 				}else {
-					JSONObject resultObject = new JSONObject(messages.get(0).getMessage());
-					if (!resultObject.has("response") && resultObject.getString("response").equals("success"))
+					JSONObject resultObject = null;
+					try {
+						resultObject = (JSONObject) (new JSONParser()).parse(messages.get(0).getMessage());
+					} catch (ParseException e) {
+						e.printStackTrace();
+					}
+					if (!resultObject.containsKey("response") && resultObject.get("response").equals("success"))
 						diedServer.add(serverList.get(r));
 				}
 			});
+//			System.out.println(serverKernel.getServerList());
 			serverList.removeAll(diedServer);
 			logger.debug(serverList);
 		}

@@ -35,6 +35,7 @@ public class Client {
 			cmd = parser.parse(options, args);
 		} catch (ParseException e) {
 			e.printStackTrace();
+			logger.error(e.getMessage());
 			return;
 		}
 		ClientKernel kernel=new ClientKernel();

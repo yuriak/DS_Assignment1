@@ -39,7 +39,7 @@ public class Connection implements Runnable {
 				}else if (message.getType()== MessageType.BYTES){
 					outputStream.write(message.getBytes());
 					outputStream.flush();
-				}else {
+				}else if(message.getType()==MessageType.FILE) {
 					BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(message.getFile()));
 					int bufferSize=1024;
 					byte[] bufferArray=new byte[bufferSize];
@@ -54,11 +54,11 @@ public class Connection implements Runnable {
 			inputStream.close();
 			outputStream.close();
 		} catch (IOException e) {
-			logger.info("Lost connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
+//			logger.info("Lost connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
 		}finally{
 			try {
 				this.clientSocket.close();
-				logger.info("Close connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+//				logger.info("Close connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

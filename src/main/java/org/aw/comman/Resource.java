@@ -1,7 +1,7 @@
 package org.aw.comman;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -87,7 +87,7 @@ public class Resource implements Cloneable {
     }
 
     public static boolean checkValidity(JSONObject resourceObject) {
-        return (resourceObject.has("name") && resourceObject.has("tags") && resourceObject.has("description") && resourceObject.has("uri") && resourceObject.has("channel") && resourceObject.has("owner") && resourceObject.has("ezserver"));
+        return (resourceObject.containsKey("name") && resourceObject.containsKey("tags") && resourceObject.containsKey("description") && resourceObject.containsKey("uri") && resourceObject.containsKey("channel") && resourceObject.containsKey("owner") && resourceObject.containsKey("ezserver"));
     }
 
     public static JSONObject toJson(Resource resource){
@@ -96,7 +96,7 @@ public class Resource implements Cloneable {
         JSONArray tagArray=new JSONArray();
         if (resource.getTags()!=null){
             for (String tag : resource.getTags()) {
-                tagArray.put(tag);
+                tagArray.add(tag);
             }
         }
         jsonObject.put("tags",tagArray);
@@ -115,28 +115,28 @@ public class Resource implements Cloneable {
         if(!checkValidity(resourceObject)){
             return null;
         }
-        String name=resourceObject.getString("name");
-        String description=resourceObject.getString("description");
-        String uriString=resourceObject.getString("uri");
+        String name= (String) resourceObject.get("name");
+        String description= (String) resourceObject.get("description");
+        String uriString= (String) resourceObject.get("uri");
         URI uri = null;
         try {
             uri = new URI(uriString);
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-        String owner=resourceObject.getString("owner");
-        String channel=resourceObject.getString("channel");
-        String ezServerString=resourceObject.getString("ezserver");
+        String owner= (String) resourceObject.get("owner");
+        String channel= (String) resourceObject.get("channel");
+        String ezServerString= (String) resourceObject.get("ezserver");
         ServerBean serverBean =null;
         if (!ezServerString.equals("")){
             String ezHost = ezServerString.split(":")[0];
             int port = Integer.parseInt(ezServerString.split(":")[1]);
             serverBean = new ServerBean(ezHost, port);
         }
-        JSONArray tagArray=resourceObject.getJSONArray("tags");
+        JSONArray tagArray= (JSONArray) resourceObject.get("tags");
         List<String> tagList=new ArrayList<>();
-        for (int i = 0; i < tagArray.length(); i++) {
-            tagList.add(tagArray.getString(i));
+        for (int i = 0; i < tagArray.size(); i++) {
+            tagList.add((String) tagArray.get(i));
         }
         Resource resource=new Resource();
         resource.setName(name);
@@ -146,8 +146,8 @@ public class Resource implements Cloneable {
         resource.setUri(uri);
         resource.setTags(tagList);
         resource.setServerBean(serverBean);
-        if (resourceObject.has("resourceSize")){
-            resource.setSize(resourceObject.getInt("resourceSize"));
+        if (resourceObject.containsKey("resourceSize")){
+            resource.setSize((Long) resourceObject.get("resourceSize"));
         }
         return resource;
     }

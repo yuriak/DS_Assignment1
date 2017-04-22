@@ -8,14 +8,18 @@ import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.Resource;
 import org.aw.comman.ServerBean;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +27,7 @@ import java.util.List;
  * Created by YURI-AK on 2017/4/10.
  */
 public class ClientKernel {
+	
 
 	private static Logger logger=Logger.getLogger(ClientKernel.class);
 	private ServerBean targetServer;
@@ -107,8 +112,7 @@ public class ClientKernel {
 			return;
 		}
 		JSONObject jsonObject = new JSONObject();
-		jsonObject.put("command", "QUERY");
-		jsonObject.put("relay", true);
+		jsonObject.put("command", "FETCH");
 		jsonObject.put("resourceTemplate", Resource.toJson(resource));
 		logger.debug(jsonObject.toString());
 		Socket socket = null;
@@ -118,22 +122,23 @@ public class ClientKernel {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(jsonObject.toString());
 			outputStream.flush();
-			if (inputStream.available()>0){
+			if (inputStream.available()>-1){
 				String response=inputStream.readUTF();
-				logger.info(resource);
+				logger.info(response);
 				if (response.contains("error"))
 					return;
-				if (inputStream.available()>0){
+				if (inputStream.available()>-1){
 					String resourceInfoStr = inputStream.readUTF();
 					logger.info(resourceInfoStr);
-					JSONObject resourceInfo = new JSONObject(resourceInfoStr);
-					Long size = resourceInfo.getLong("resourceSize");
+					JSONParser parser=new JSONParser();
+					JSONObject resourceInfo = (JSONObject) (new JSONParser()).parse(resourceInfoStr);
+					Long size = (Long) resourceInfo.get("resourceSize");
 					String fileName = resource.getUri().getPath().split("/")[resource.getUri().getPath().split("/").length - 1];
-					if (inputStream.available()>0){
+					if (inputStream.available()>-1){
 						File file = new File(fileName);
 						file.createNewFile();
 						FileUtils.writeByteArrayToFile(file, IOUtils.toByteArray(inputStream, size));
-						if (inputStream.available()>0){
+						if (inputStream.available()>-1){
 							logger.info(inputStream.readUTF());
 						}
 					}
@@ -143,7 +148,9 @@ public class ClientKernel {
 			outputStream.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		}finally {
+		} catch (ParseException e) {
+			e.printStackTrace();
+		} finally {
 			if (socket != null) {
 				try {
 					socket.close();
@@ -185,7 +192,7 @@ public class ClientKernel {
 			int port=Integer.valueOf(serverStrings[i].split(":")[1].trim());
 			serverObject.put("hostname",hostname);
 			serverObject.put("port",port);
-			serverArray.put(serverObject);
+			serverArray.add(serverObject);
 		}
 		jsonObject.put("serverList",serverArray);
 		logger.debug(jsonObject.toString());
@@ -200,6 +207,13 @@ public class ClientKernel {
 		if (requireURI&&(!cmd.hasOption("uri")||cmd.getOptionValue("uri").equals(""))) {
 			logger.error("require uri");
 			return null;
+		}else{
+			try {
+				if (cmd.hasOption("uri"))
+					resource.setUri(new URI(cmd.getOptionValue("uri")));
+			} catch (URISyntaxException e) {
+				e.printStackTrace();
+			}
 		}
 		if (cmd.hasOption("owner")) {
 			if (cmd.getOptionValue("owner").trim().equals("*")) {

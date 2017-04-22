@@ -58,20 +58,21 @@ public class ServerConnectionManager {
 			outputStream.writeUTF(message.getMessage());
 			outputStream.flush();
 			String data=null;
-			while ((data=inputStream.readUTF())!=null){
+			while (inputStream.available()>-1){
+				data=inputStream.readUTF();
 				response = new Message(MessageType.STRING, data, null, null);
 				messages.add(response);
 			}
 		} catch (IOException e) {
-			logger.info("Lost connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+//			logger.info("Lost connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 		} finally {
 			try {
 				if (socket!=null){
 					socket.close();
-					logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+//					logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				}
 			} catch (IOException e) {
-
+					logger.error(e.getMessage());
 			}
 			return messages;
 		}

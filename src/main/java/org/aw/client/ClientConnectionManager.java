@@ -34,12 +34,12 @@ public class ClientConnectionManager {
 				messages.add(response);
 			}
 		} catch (IOException e) {
-			logger.info("Lost connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+//			logger.info("Lost connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 		} finally {
 			try {
 				if (socket != null) {
 					socket.close();
-					logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+//					logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				}
 			} catch (IOException e) {
 

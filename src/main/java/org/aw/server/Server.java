@@ -13,7 +13,7 @@ public class Server {
 		options.addOption("exchangeinterval",true,"exchange interval in seconds");
 		options.addOption("port",true,"server port, an integer");
 		options.addOption("secret",true,"secret");
-		options.addOption("debug",true,"print debug information");
+		options.addOption("debug",false,"print debug information");
 		CommandLineParser parser=new DefaultParser();
 		CommandLine cmd=null;
 		try {
@@ -38,7 +38,7 @@ public class Server {
 			ServerConfig.SECRET=cmd.getOptionValue("secret");
 		}
 		if (cmd.hasOption("debug")){
-			ServerConfig.DEBUG=Boolean.parseBoolean(cmd.getOptionValue("debug"));
+			ServerConfig.DEBUG=true;
 		}
 		ServerKernel kernel = ServerKernel.getInstance();
 		kernel.initServer();
