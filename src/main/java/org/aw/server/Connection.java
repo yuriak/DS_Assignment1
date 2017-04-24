@@ -31,14 +31,17 @@ public class Connection implements Runnable {
 	public void run() {
 		try {
 			String commandString=inputStream.readUTF();
+			logger.debug("Received: "+commandString);
 			List<Message> messages = processor.processCommand(commandString);
 			for (Message message : messages) {
 				if(message.getType()== MessageType.STRING){
 					outputStream.writeUTF(message.getMessage());
 					outputStream.flush();
+					logger.debug("Sent: " + message.getMessage());
 				}else if (message.getType()== MessageType.BYTES){
 					outputStream.write(message.getBytes());
 					outputStream.flush();
+					logger.debug("Sent: " + message.getBytes().length+" of bytes");
 				}else if(message.getType()==MessageType.FILE) {
 					BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(message.getFile()));
 					int bufferSize=1024;
@@ -49,16 +52,17 @@ public class Connection implements Runnable {
 					}
 					outputStream.flush();
 					bufferedInputStream.close();
+					logger.debug("Sent file: " + message.getFile().getName());
 				}
 			}
 			inputStream.close();
 			outputStream.close();
 		} catch (IOException e) {
-//			logger.info("Lost connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
+			logger.debug("Lost connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
 		}finally{
 			try {
 				this.clientSocket.close();
-//				logger.info("Close connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+				logger.debug("Close connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

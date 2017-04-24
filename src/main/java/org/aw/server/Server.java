@@ -1,11 +1,16 @@
 package org.aw.server;
 
 import org.apache.commons.cli.*;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+
 
 /**
  * Created by YuriAntonov on 2017/4/11.
  */
 public class Server {
+	private static Logger logger=Logger.getLogger(Server.class);
 	public static void main(String[] args) {
 		Options options=new Options();
 		options.addOption("advertisedhostname",true,"advertised hostname");
@@ -26,19 +31,40 @@ public class Server {
 			ServerConfig.HOST_NAME=cmd.getOptionValue("advertisedhostname");
 		}
 		if (cmd.hasOption("connectionintervallimit")){
-			ServerConfig.CONNECTION_INTERVAL=(int)Double.parseDouble(cmd.getOptionValue("connectionintervallimit"))*1000;
+			try {
+				ServerConfig.CONNECTION_INTERVAL = Integer.parseInt(cmd.getOptionValue("connectionintervallimit")) * 1000;
+			}catch (Exception e){
+				logger.error("Connection interval must be an integer, using default connection interval: "+ServerConfig.CONNECTION_INTERVAL);
+			}
 		}
 		if (cmd.hasOption("exchangeinterval")){
-			ServerConfig.EXCHANGE_INTERVAL=(int)Double.parseDouble(cmd.getOptionValue("exchangeinterval"))*1000;
+			try {
+				ServerConfig.EXCHANGE_INTERVAL = Integer.parseInt(cmd.getOptionValue("exchangeinterval")) * 1000;
+			}catch (Exception e){
+				logger.error("Exchange interval must be an integer, using default exchange interval: " + ServerConfig.EXCHANGE_INTERVAL);
+			}
+
 		}
 		if (cmd.hasOption("port")){
-			ServerConfig.PORT=Integer.parseInt(cmd.getOptionValue("port"));
+			try {
+				int port= Integer.parseInt(cmd.getOptionValue("port"));
+				if (port<0||port>65535){
+					logger.error("Port must be an integer between 0 and 65535");
+				}else {
+					ServerConfig.PORT = port;
+				}
+			}catch (Exception e){
+				logger.error("Port must be an integer between 0 and 65535");
+			}
 		}
 		if (cmd.hasOption("secret")){
 			ServerConfig.SECRET=cmd.getOptionValue("secret");
 		}
 		if (cmd.hasOption("debug")){
 			ServerConfig.DEBUG=true;
+			logger.info("Setting debug mode on");
+			Level level = Level.toLevel(Level.DEBUG_INT);
+			LogManager.getRootLogger().setLevel(level);
 		}
 		ServerKernel kernel = ServerKernel.getInstance();
 		kernel.initServer();

@@ -26,11 +26,13 @@ public class ClientConnectionManager {
 			socket.setSoTimeout(1000);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-			outputStream.writeUTF(message.getMessage());
+			outputStream.writeUTF(message.getMessage().replaceAll("\0","").trim());
 			outputStream.flush();
+			logger.debug("Sent: "+message.getMessage());
 			String data = null;
 			while ((data = inputStream.readUTF()) != null) {
-				response = new Message(MessageType.STRING, data, null, null);
+				logger.info("Received: "+data);
+				response = new Message(MessageType.STRING, data.replaceAll("\0",""), null, null);
 				messages.add(response);
 			}
 		} catch (IOException e) {
@@ -42,7 +44,7 @@ public class ClientConnectionManager {
 //					logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				}
 			} catch (IOException e) {
-
+				e.printStackTrace();
 			}
 			return messages;
 		}

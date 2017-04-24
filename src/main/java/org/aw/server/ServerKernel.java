@@ -11,6 +11,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -43,7 +44,7 @@ public class ServerKernel {
 	private static ServerKernel serverKernel;
 	Logger logger=Logger.getLogger(ServerKernel.class);
 	private ServerKernel() {
-		resources=new ArrayList<>();
+		resources= Collections.synchronizedList(new ArrayList<>());
 		serverList =new ArrayList<>();
 	}
 
@@ -62,14 +63,15 @@ public class ServerKernel {
 		this.myServer = new ServerBean(ServerConfig.HOST_NAME,ServerConfig.PORT);
 		serverList.add(myServer);
 		serverConnectionManager =new ServerConnectionManager();
-		logger.info("init myServer: "+ myServer.getHostname()+":"+ myServer.getPort());
+		logger.info("Init Server: "+ myServer.getHostname()+":"+ myServer.getPort());
+		logger.info("Using secret: "+ServerConfig.SECRET);
 	}
 
 	public void startServer(){
 		Thread listenThread = new Thread(new Runnable() {
 			public void run() {
+				logger.debug("Start to handle connection");
 				serverConnectionManager.handleConnection(myServer);
-				logger.info("start to handle connection");
 			}
 		});
 		Thread exchangeThread=new Thread(new Runnable() {
@@ -78,6 +80,7 @@ public class ServerKernel {
 				exchangeServers();
 			}
 		});
+		logger.debug("starting listening thread and exchange thread");
 		listenThread.start();
 		exchangeThread.start();
 	}
@@ -107,6 +110,7 @@ public class ServerKernel {
 	}
 
 	private void exchangeServers(){
+		logger.debug("start to exchange servers");
 		while (true){
 			try {
 				Thread.sleep(ServerConfig.EXCHANGE_INTERVAL);
@@ -145,9 +149,8 @@ public class ServerKernel {
 						diedServer.add(serverList.get(r));
 				}
 			});
-//			System.out.println(serverKernel.getServerList());
 			serverList.removeAll(diedServer);
-			logger.debug(serverList);
+			logger.debug("current servers:"+serverList);
 		}
 	}
 }

@@ -43,7 +43,7 @@ public class ServerCommandProcessor {
 		try {
 			JSONObject jsonObject= (JSONObject) (new JSONParser()).parse(command);
 			String cmd= (String) jsonObject.get("command");
-			logger.info(cmd);
+			logger.debug(cmd);
 			switch (cmd){
 				case "PUBLISH": messages.addAll(publish(jsonObject));
 					break;
@@ -82,13 +82,15 @@ public class ServerCommandProcessor {
 		if (resource==null|| !resource.getUri().isAbsolute() || resource.getUri().getScheme().equals("file")||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot publish resource");
 		List<Resource> resources = kernel.getResources();
-		if(resources.stream().anyMatch(re->re.getChannel().equals(resource.getChannel())&&re.getUri().equals(resource.getUri())&&!re.getOwner().equals(resource.getOwner())))
-			return sendErrorMessage("cannot publish resource");
-		List<Resource> sameResource=resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
-		if (sameResource.size()>0){
-			resources.set(resources.indexOf(sameResource.get(0)),resource);
-		}else {
-			resources.add(resource);
+		synchronized (resources){
+			if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner())))
+				return sendErrorMessage("cannot publish resource");
+			List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
+			if (sameResource.size() > 0) {
+				resources.set(resources.indexOf(sameResource.get(0)), resource);
+			} else {
+				resources.add(resource);
+			}
 		}
 //		resources.forEach(re-> System.out.println(Resource.toJson(re).toString()));
 		return sendSuccessMessage();
@@ -106,10 +108,12 @@ public class ServerCommandProcessor {
 		if (resource == null || !resource.getUri().isAbsolute() || resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot publish resource");
 		List<Resource> resources = kernel.getResources();
-		List<Resource> targetList = resources.stream().filter(re -> re.getOwner().equals(resource.getOwner()) && re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri())).collect(Collectors.toList());
-		if (targetList.size()==0)
-			return sendErrorMessage("cannot remove resource");
-		resources.remove(targetList.get(0));
+		synchronized (resources){
+			List<Resource> targetList = resources.stream().filter(re -> re.getOwner().equals(resource.getOwner()) && re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri())).collect(Collectors.toList());
+			if (targetList.size() == 0)
+				return sendErrorMessage("cannot remove resource");
+			resources.remove(targetList.get(0));
+		}
 //		resources.forEach(re -> System.out.println(Resource.toJson(re).toString()));
 		return sendSuccessMessage();
 	}
@@ -129,13 +133,15 @@ public class ServerCommandProcessor {
 		File file=new File(resource.getUri().getPath());
 		if (!file.exists()||!file.isFile()) return sendErrorMessage("cannot share resource");
 		List<Resource> resources = kernel.getResources();
-		if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner())))
-			return sendErrorMessage("cannot share resource");
-		List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
-		if (sameResource.size() > 0) {
-			resources.set(resources.indexOf(sameResource.get(0)), resource);
-		} else {
-			resources.add(resource);
+		synchronized (resources){
+			if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner())))
+				return sendErrorMessage("cannot share resource");
+			List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
+			if (sameResource.size() > 0) {
+				resources.set(resources.indexOf(sameResource.get(0)), resource);
+			} else {
+				resources.add(resource);
+			}
 		}
 //		resources.forEach(re -> System.out.println(Resource.toJson(re).toString()));
 		return sendSuccessMessage();
@@ -154,19 +160,21 @@ public class ServerCommandProcessor {
 			return sendErrorMessage("invalid resourceTemplate");
 		List<Resource> resources = kernel.getResources();
 		List<Resource> candidates=new ArrayList<>();
-		for (Resource re:resources){
-			if ((resource.getChannel().equals(re.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(re.getOwner())) &&
-							(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> re.getTags().contains(tag))) &&
-							(resource.getUri().toString().equals("") || resource.getUri().equals(re.getUri())) &&
-							((resource.getName().equals("") || re.getName().contains(resource.getName())) || (resource.getDescription().equals("") || re.getDescription().contains(resource.getDescription())))) {
-				try {
-					Resource candidateResource = re.clone();
-					if (!candidateResource.getOwner().equals(""))
-						candidateResource.setOwner("*");
-					candidateResource.setServerBean(kernel.getMyServer());
-					candidates.add(candidateResource);
-				} catch (CloneNotSupportedException e) {
-					e.printStackTrace();
+		synchronized (resources){
+			for (Resource re : resources) {
+				if ((resource.getChannel().equals(re.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(re.getOwner())) &&
+						(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> re.getTags().contains(tag))) &&
+						(resource.getUri().toString().equals("") || resource.getUri().equals(re.getUri())) &&
+						((resource.getName().equals("") || re.getName().contains(resource.getName())) || (resource.getDescription().equals("") || re.getDescription().contains(resource.getDescription())))) {
+					try {
+						Resource candidateResource = re.clone();
+						if (!candidateResource.getOwner().equals(""))
+							candidateResource.setOwner("*");
+						candidateResource.setServerBean(kernel.getMyServer());
+						candidates.add(candidateResource);
+					} catch (CloneNotSupportedException e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}
@@ -217,11 +225,11 @@ public class ServerCommandProcessor {
 		List<Resource> resources = kernel.getResources();
 		List<Resource> targetList = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getOwner().equals(resource.getOwner()) && re.getUri().equals(resource.getUri())).collect(Collectors.toList());
 		if (targetList.size()==0)
-			return sendErrorMessage("invalid resourceTemplate");
+			return sendErrorMessage("cannot fetch resourse");
 		File file=new File(resource.getUri().getPath());
 		if (!file.exists()||!file.isFile())
 			return sendErrorMessage("cannot fetch resource");
-		resource.setOwner("*");
+		if (!resource.getOwner().equals("")) resource.setOwner("*");
 		resource.setSize(file.length());
 		resource.setServerBean(kernel.getMyServer());
 		resourceObject=Resource.toJson(resource);
@@ -242,7 +250,15 @@ public class ServerCommandProcessor {
 			JSONObject serverObject = (JSONObject) serverArray.get(i);
 			if (!serverObject.containsKey("hostname")||!serverObject.containsKey("port")) continue;
 			String hostname= (String) serverObject.get("hostname");
-			int port= Integer.parseInt(serverObject.get("port").toString());
+			int port=0;
+			try {
+				port = Integer.parseInt(serverObject.get("port").toString());
+				if (port<0||port>65535){
+					return sendErrorMessage("missing or invalid server list");
+				}
+			}catch (Exception e){
+				return sendErrorMessage("missing or invalid server list");
+			}
 			ServerBean serverBean =new ServerBean(hostname,port);
 			if (!kernel.getServerList().contains(serverBean)&&!serverBean.equals(kernel.getMyServer())){
 				kernel.getServerList().add(serverBean);
@@ -251,7 +267,6 @@ public class ServerCommandProcessor {
 //		System.out.println("receive: "+serverArray.toString());
 		return sendSuccessMessage();
 	}
-
 
 
 	private static List<Message> sendErrorMessage(String message){

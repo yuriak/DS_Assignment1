@@ -1,9 +1,8 @@
 package org.aw.client;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.Resource;
@@ -15,32 +14,44 @@ import org.json.simple.parser.ParseException;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * Created by YURI-AK on 2017/4/10.
  */
 public class ClientKernel {
-	
 
 	private static Logger logger=Logger.getLogger(ClientKernel.class);
 	private ServerBean targetServer;
 	public void processCommand(CommandLine cmd){
 		if (cmd.hasOption("debug")){
-			logger.info("set debug on");
-			logger.setLevel(Level.DEBUG);
+			logger.info("Setting debug mode on");
+			Level level = Level.toLevel(Level.DEBUG_INT);
+			LogManager.getRootLogger().setLevel(level);
 		}
 		if (!cmd.hasOption("host")||!cmd.hasOption("port")){
 			logger.error("require host and port");
 			return;
 		}
-		targetServer=new ServerBean(cmd.getOptionValue("host"),Integer.valueOf(cmd.getOptionValue("port")));
+		targetServer=null;
+		try {
+			int port= Integer.valueOf(cmd.getOptionValue("port"));
+			if (port<0||port>65535) {
+				logger.error("Port must be an integer between 0 and 65535");
+				return;
+			}
+			targetServer = new ServerBean(cmd.getOptionValue("host"), port);
+		}catch (Exception e){
+			logger.error("Port must be an integer between 0 and 65535");
+			return;
+		}
 		if (cmd.hasOption("publish")) {
 			publish(cmd);
 		} else if (cmd.hasOption("remove")) {
@@ -64,11 +75,7 @@ public class ClientKernel {
 		JSONObject jsonObject=new JSONObject();
 		jsonObject.put("command","PUBLISH");
 		jsonObject.put("resource",Resource.toJson(resource));
-		logger.debug(jsonObject.toString());
-		List<Message> messages = ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
-		if (messages!=null){
-			messages.forEach(message -> logger.info(message.getMessage()));
-		}
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
 	}
 
 	private void remove(CommandLine cmd) {
@@ -79,11 +86,7 @@ public class ClientKernel {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("command", "REMOVE");
 		jsonObject.put("resource", Resource.toJson(resource));
-		logger.debug(jsonObject.toString());
-		List<Message> messages = ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
-		if (messages != null) {
-			messages.forEach(message -> logger.info(message.getMessage()));
-		}
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
 	}
 
 	private void share(CommandLine cmd) {
@@ -99,11 +102,7 @@ public class ClientKernel {
 		jsonObject.put("command", "SHARE");
 		jsonObject.put("resource", Resource.toJson(resource));
 		jsonObject.put("secret",cmd.getOptionValue("secret"));
-		logger.debug(jsonObject.toString());
-		List<Message> messages = ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
-		if (messages != null) {
-			messages.forEach(message -> logger.info(message.getMessage()));
-		}
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
 	}
 
 	private void fetch(CommandLine cmd) {
@@ -114,7 +113,6 @@ public class ClientKernel {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("command", "FETCH");
 		jsonObject.put("resourceTemplate", Resource.toJson(resource));
-		logger.debug(jsonObject.toString());
 		Socket socket = null;
 		try {
 			socket = new Socket(targetServer.getHostname(), targetServer.getPort());
@@ -122,25 +120,32 @@ public class ClientKernel {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(jsonObject.toString());
 			outputStream.flush();
+			logger.debug("Sent: "+jsonObject.toString());
 			if (inputStream.available()>-1){
 				String response=inputStream.readUTF();
-				logger.info(response);
+				logger.info("Received: " +response);
 				if (response.contains("error"))
 					return;
-				if (inputStream.available()>-1){
+				if (inputStream.available()>0){
 					String resourceInfoStr = inputStream.readUTF();
-					logger.info(resourceInfoStr);
+					logger.info("Received: "+resourceInfoStr);
 					JSONParser parser=new JSONParser();
 					JSONObject resourceInfo = (JSONObject) (new JSONParser()).parse(resourceInfoStr);
-					Long size = (Long) resourceInfo.get("resourceSize");
+					long fileSize = (long) resourceInfo.get("resourceSize");
 					String fileName = resource.getUri().getPath().split("/")[resource.getUri().getPath().split("/").length - 1];
-					if (inputStream.available()>-1){
-						File file = new File(fileName);
-						file.createNewFile();
-						FileUtils.writeByteArrayToFile(file, IOUtils.toByteArray(inputStream, size));
-						if (inputStream.available()>-1){
-							logger.info(inputStream.readUTF());
-						}
+					RandomAccessFile file = new RandomAccessFile(fileName,"rw");
+					int chunkSize=setChunkSize(fileSize);
+					byte[] buffer=new byte[chunkSize];
+					int number;
+					while ((number=inputStream.read(buffer))>0){
+						file.write(Arrays.copyOf(buffer,number));
+						fileSize-=number;
+						chunkSize=setChunkSize(fileSize);
+						buffer=new byte[chunkSize];
+						if (fileSize==0)break;
+					}
+					if (inputStream.available()>0){
+						logger.info("Received: " +inputStream.readUTF());
 					}
 				}
 			}
@@ -171,10 +176,7 @@ public class ClientKernel {
 		jsonObject.put("relay", true);
 		jsonObject.put("resourceTemplate", Resource.toJson(resource));
 		logger.debug(jsonObject.toString());
-		List<Message> messages = ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
-		if (messages != null) {
-			messages.forEach(message -> System.out.println(message.getMessage()));
-		}
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
 	}
 
 	private void exchange(CommandLine cmd) {
@@ -189,17 +191,24 @@ public class ClientKernel {
 		for (int i=0;i<serverStrings.length;i++){
 			JSONObject serverObject=new JSONObject();
 			String hostname=serverStrings[i].split(":")[0].trim();
-			int port=Integer.valueOf(serverStrings[i].split(":")[1].trim());
+			int port=0;
+			try {
+				port = Integer.valueOf(serverStrings[i].split(":")[1].trim());
+				if (port<0||port>65535){
+					logger.error("Port must be an integer between 0 and 65535");
+					return;
+				}
+			}catch (Exception e){
+				logger.error("Port must be an integer between 0 and 65535");
+				return;
+			}
+
 			serverObject.put("hostname",hostname);
 			serverObject.put("port",port);
 			serverArray.add(serverObject);
 		}
 		jsonObject.put("serverList",serverArray);
-		logger.debug(jsonObject.toString());
-		List<Message> messages = ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
-		if (messages != null) {
-			messages.forEach(message -> System.out.println(message.getMessage()));
-		}
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
 	}
 
 	private Resource parseResourceCmd(CommandLine cmd,boolean requireURI){
@@ -248,5 +257,13 @@ public class ClientKernel {
 		}
 		resource.setTags(tagList);
 		return resource;
+	}
+
+	private static int setChunkSize(long fileSizeRemaining) {
+		int chunkSize = 1024 * 1024;
+		if (fileSizeRemaining < chunkSize) {
+			chunkSize = (int) fileSizeRemaining;
+		}
+		return chunkSize;
 	}
 }

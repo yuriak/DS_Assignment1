@@ -24,7 +24,7 @@ public class ServerConnectionManager {
 
 	private ThreadPoolExecutor executor;
 	public ServerConnectionManager() {
-		executor = new ThreadPoolExecutor(30, 30, 200, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+		executor = new ThreadPoolExecutor(50, Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 	}
 
 	public void handleConnection(ServerBean serverBean) {
@@ -33,7 +33,7 @@ public class ServerConnectionManager {
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
 				clientSocket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
-				logger.info("handel connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
+//				logger.info("handel connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
 				executor.execute(new Connection(clientSocket));
 			}
 		} catch (IOException e) {
@@ -55,12 +55,13 @@ public class ServerConnectionManager {
 			socket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-			outputStream.writeUTF(message.getMessage());
+			outputStream.writeUTF(message.getMessage().replaceAll("\0",""));
 			outputStream.flush();
 			String data=null;
 			while (inputStream.available()>-1){
 				data=inputStream.readUTF();
-				response = new Message(MessageType.STRING, data, null, null);
+				logger.debug("Received: "+data);
+				response = new Message(MessageType.STRING, data.replaceAll("\0",""), null, null);
 				messages.add(response);
 			}
 		} catch (IOException e) {

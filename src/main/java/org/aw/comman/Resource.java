@@ -130,7 +130,15 @@ public class Resource implements Cloneable {
         ServerBean serverBean =null;
         if (!ezServerString.equals("")){
             String ezHost = ezServerString.split(":")[0];
-            int port = Integer.parseInt(ezServerString.split(":")[1]);
+            int port=0;
+            try {
+                port = Integer.parseInt(ezServerString.split(":")[1]);
+                if(port<0||port>65535){
+                    return null;
+                }
+            }catch (Exception e){
+                return null;
+            }
             serverBean = new ServerBean(ezHost, port);
         }
         JSONArray tagArray= (JSONArray) resourceObject.get("tags");
