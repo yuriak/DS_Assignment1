@@ -17,6 +17,7 @@ public class ServerConfig {
 	public static String SECRET="";
 	public static String HOST_NAME="";
 	public static int PORT=9888;
+	public static int TIME_OUT=1000;
 	
 	static {
 		try {

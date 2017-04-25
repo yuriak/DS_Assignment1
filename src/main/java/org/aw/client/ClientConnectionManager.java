@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.MessageType;
 import org.aw.comman.ServerBean;
+import org.aw.server.ServerConfig;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -23,7 +24,7 @@ public class ClientConnectionManager {
 		List<Message> messages = new ArrayList<>();
 		try {
 			socket = new Socket(serverBean.getAddress(), serverBean.getPort());
-			socket.setSoTimeout(1000);
+			socket.setSoTimeout(ServerConfig.TIME_OUT);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage().replaceAll("\0","").trim());

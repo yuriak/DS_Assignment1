@@ -12,6 +12,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -21,10 +23,11 @@ import java.util.concurrent.TimeUnit;
  */
 public class ServerConnectionManager {
 	Logger logger=Logger.getLogger(ServerConnectionManager.class);
-
+	private Map<String,Long> intervalMap;
 	private ThreadPoolExecutor executor;
 	public ServerConnectionManager() {
 		executor = new ThreadPoolExecutor(50, Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		intervalMap=new ConcurrentHashMap<>();
 	}
 
 	public void handleConnection(ServerBean serverBean) {
@@ -32,8 +35,20 @@ public class ServerConnectionManager {
 			ServerSocket serverSocket = new ServerSocket(serverBean.getPort());
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
-				clientSocket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
-//				logger.info("handel connection: "+clientSocket.getInetAddress().getHostAddress()+":"+clientSocket.getPort());
+				clientSocket.setSoTimeout(ServerConfig.TIME_OUT);
+				String ipAddress=clientSocket.getInetAddress().getHostAddress();
+				logger.debug("Handel connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+				if (!intervalMap.containsKey(ipAddress)){
+					intervalMap.put(ipAddress,System.currentTimeMillis());
+				}else {
+					if(System.currentTimeMillis()-intervalMap.get(ipAddress)<ServerConfig.CONNECTION_INTERVAL){
+						clientSocket.close();
+						logger.debug("Client: "+clientSocket.getInetAddress().getHostAddress()+" violates the connection interval.");
+						intervalMap.put(ipAddress, System.currentTimeMillis());
+						continue;
+					}
+				}
+				intervalMap.put(ipAddress, System.currentTimeMillis());
 				executor.execute(new Connection(clientSocket));
 			}
 		} catch (IOException e) {
@@ -52,7 +67,7 @@ public class ServerConnectionManager {
 		List<Message> messages=new ArrayList<>();
 		try {
 			socket=new Socket(serverBean.getAddress(), serverBean.getPort());
-			socket.setSoTimeout(ServerConfig.CONNECTION_INTERVAL);
+			socket.setSoTimeout(ServerConfig.TIME_OUT);
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage().replaceAll("\0",""));
