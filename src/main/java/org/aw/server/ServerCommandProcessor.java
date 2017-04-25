@@ -106,7 +106,7 @@ public class ServerCommandProcessor {
 			return sendErrorMessage("invalid resource");
 		Resource resource = Resource.parseJson(resourceObject);
 		if (resource == null || !resource.getUri().isAbsolute() || resource.getOwner().equals("*"))
-			return sendErrorMessage("cannot publish resource");
+			return sendErrorMessage("cannot remove resource");
 		List<Resource> resources = kernel.getResources();
 		synchronized (resources){
 			List<Resource> targetList = resources.stream().filter(re -> re.getOwner().equals(resource.getOwner()) && re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri())).collect(Collectors.toList());
