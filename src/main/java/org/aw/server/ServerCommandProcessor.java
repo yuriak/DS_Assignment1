@@ -261,7 +261,9 @@ public class ServerCommandProcessor {
 			}
 			ServerBean serverBean =new ServerBean(hostname,port);
 			if (!kernel.getServerList().contains(serverBean)&&!serverBean.equals(kernel.getMyServer())){
-				kernel.getServerList().add(serverBean);
+				synchronized (kernel.getServerList()){
+					kernel.getServerList().add(serverBean);
+				}
 			}
 		}
 //		System.out.println("receive: "+serverArray.toString());

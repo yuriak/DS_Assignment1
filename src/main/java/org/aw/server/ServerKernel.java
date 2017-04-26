@@ -45,7 +45,7 @@ public class ServerKernel {
 	Logger logger=Logger.getLogger(ServerKernel.class);
 	private ServerKernel() {
 		resources= Collections.synchronizedList(new ArrayList<>());
-		serverList =new ArrayList<>();
+		serverList = Collections.synchronizedList(new ArrayList<>());
 	}
 
 	public static ServerKernel getInstance() {
@@ -122,16 +122,17 @@ public class ServerKernel {
 			}
 			Random random = new Random();
 			List<ServerBean> diedServer = new ArrayList<>();
-			random.ints(0, serverList.size()).distinct().limit(serverList.size() / 2).forEach(r -> {
-				
-				JSONObject messageObject = new JSONObject();
-				JSONArray serverArray = new JSONArray();
-				serverList.forEach(server->{
-					JSONObject serverObject=new JSONObject();
-					serverObject.put("hostname",server.getHostname());
-					serverObject.put("port",server.getPort());
+			JSONArray serverArray = new JSONArray();
+			synchronized (serverList){
+				serverList.forEach(server -> {
+					JSONObject serverObject = new JSONObject();
+					serverObject.put("hostname", server.getHostname());
+					serverObject.put("port", server.getPort());
 					serverArray.add(serverObject);
 				});
+			}
+			random.ints(0, serverList.size()).distinct().limit(serverList.size() / 2).forEach(r -> {
+				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", serverArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
@@ -149,7 +150,9 @@ public class ServerKernel {
 						diedServer.add(serverList.get(r));
 				}
 			});
-			serverList.removeAll(diedServer);
+			synchronized (serverList){
+				serverList.removeAll(diedServer);
+			}
 			logger.debug("current servers:"+serverList);
 		}
 	}

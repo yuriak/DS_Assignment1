@@ -44,7 +44,6 @@ public class ServerConnectionManager {
 					if(System.currentTimeMillis()-intervalMap.get(ipAddress)<ServerConfig.CONNECTION_INTERVAL){
 						clientSocket.close();
 						logger.debug("Client: "+clientSocket.getInetAddress().getHostAddress()+" violates the connection interval.");
-						intervalMap.put(ipAddress, System.currentTimeMillis());
 						continue;
 					}
 				}
