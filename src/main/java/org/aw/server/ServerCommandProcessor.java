@@ -11,7 +11,6 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.io.File;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -281,15 +280,6 @@ public class ServerCommandProcessor {
 		response.setMessage(jsonObject.toString());
 		messages.add(response);
 		return messages;
-	}
-
-
-	public static void main(String[] args) throws URISyntaxException, CloneNotSupportedException {
-//		URI uri = new URI("");
-//		File file = new File(uri.getPath());
-//		System.out.println(file.exists());
-//		System.out.println("http://www.baidu.com".replaceAll("\\/","\\\\/"));
-//		System.out.println("http:\\/\\/www.baidu.com".replaceAll("\\\\/","\\/"));
 	}
 
 	private static List<Message> sendSuccessMessage(){
