@@ -5,6 +5,9 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 /**
  * Created by YuriAntonov on 2017/4/11.
@@ -24,7 +27,11 @@ public class Server {
 		try {
 			cmd=parser.parse(options,args);
 		} catch (ParseException e) {
-			e.printStackTrace();
+			List<Option> opts=new ArrayList<>(options.getOptions());
+			System.out.println("Usage:");
+			for (Option opt:opts){
+				System.out.println(opt.getOpt()+"\t"+opt.getDescription());
+			}
 			return;
 		}
 		if (cmd.hasOption("advertisedhostname")){

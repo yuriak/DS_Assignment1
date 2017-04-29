@@ -3,6 +3,9 @@ package org.aw.client;
 import org.apache.commons.cli.*;
 import org.apache.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by YuriAntonov on 2017/4/11.
  */
@@ -34,8 +37,11 @@ public class Client {
 		try {
 			cmd = parser.parse(options, args);
 		} catch (ParseException e) {
-			e.printStackTrace();
-			logger.error(e.getMessage());
+			List<Option> opts = new ArrayList<>(options.getOptions());
+			System.out.println("Usage:");
+			for (Option opt : opts) {
+				System.out.println(opt.getOpt() + "\t" + opt.getDescription());
+			}
 			return;
 		}
 		ClientKernel kernel=new ClientKernel();
