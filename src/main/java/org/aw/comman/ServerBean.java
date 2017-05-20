@@ -10,17 +10,17 @@ public class ServerBean {
 
 	private String hostname;
 	private int port;
-
 	public InetAddress getAddress() {
 		return address;
 	}
+	
 
 	public void setAddress(InetAddress address) {
 		this.address = address;
 	}
-
+	
 	private InetAddress address;
-
+	
 	public ServerBean(String hostname, int port){
 		this.hostname=hostname;
 		this.port=port;
@@ -57,4 +57,5 @@ public class ServerBean {
 		ServerBean serverBean = (ServerBean) obj;
 		return this.address.equals(serverBean.getAddress())&&this.port== serverBean.getPort();
 	}
+	
 }

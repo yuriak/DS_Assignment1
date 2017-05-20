@@ -19,15 +19,16 @@ import java.util.Random;
  * Created by YURI-AK on 2017/4/5.
  */
 public class ServerKernel {
-	public ServerBean getMyServer() {
-		return myServer;
+	public ServerBean getMyNormalServer() {
+		return myNormalServer;
 	}
 
-	public void setMyServer(ServerBean myServer) {
-		this.myServer = myServer;
+	public void setMyNormalServer(ServerBean myServer) {
+		this.myNormalServer = myServer;
 	}
 
-	private ServerBean myServer;
+	private ServerBean myNormalServer;
+	private ServerBean mySSLServer;
 	private int status;
 
 	public ServerConnectionManager getServerConnectionManager() {
@@ -40,12 +41,31 @@ public class ServerKernel {
 
 	private ServerConnectionManager serverConnectionManager;
 	private List<Resource> resources;
-	private List<ServerBean> serverList;
+	private List<ServerBean> normalServerList;
+	
+	public ServerBean getMySSLServer() {
+		return mySSLServer;
+	}
+	
+	public void setMySSLServer(ServerBean mySSLServer) {
+		this.mySSLServer = mySSLServer;
+	}
+	
+	public List<ServerBean> getSslServerList() {
+		return sslServerList;
+	}
+	
+	public void setSslServerList(List<ServerBean> sslServerList) {
+		this.sslServerList = sslServerList;
+	}
+	
+	private List<ServerBean> sslServerList;
 	private static ServerKernel serverKernel;
 	Logger logger=Logger.getLogger(ServerKernel.class);
 	private ServerKernel() {
 		resources= Collections.synchronizedList(new ArrayList<>());
-		serverList = Collections.synchronizedList(new ArrayList<>());
+		normalServerList = Collections.synchronizedList(new ArrayList<>());
+		sslServerList=Collections.synchronizedList(new ArrayList<>());
 	}
 
 	public static ServerKernel getInstance() {
@@ -60,18 +80,27 @@ public class ServerKernel {
 	}
 
 	public void initServer(){
-		this.myServer = new ServerBean(ServerConfig.HOST_NAME,ServerConfig.PORT);
-		serverList.add(myServer);
+		this.myNormalServer = new ServerBean(ServerConfig.HOST_NAME,ServerConfig.PORT);
+		this.mySSLServer =new ServerBean(ServerConfig.HOST_NAME,ServerConfig.SPORT);
+		normalServerList.add(myNormalServer);
+		sslServerList.add(mySSLServer);
 		serverConnectionManager =new ServerConnectionManager();
-		logger.info("Init Server: "+ myServer.getHostname()+":"+ myServer.getPort());
+		logger.info("Init Server: "+ myNormalServer.getHostname()+":"+ myNormalServer.getPort()+", SSL:"+mySSLServer.getPort());
 		logger.info("Using secret: "+ServerConfig.SECRET);
 	}
 
 	public void startServer(){
-		Thread listenThread = new Thread(new Runnable() {
+		Thread listenNormalThread = new Thread(new Runnable() {
 			public void run() {
 				logger.debug("Start to handle connection");
-				serverConnectionManager.handleConnection(myServer);
+				serverConnectionManager.handleConnection(myNormalServer);
+			}
+		});
+		Thread listenSSLThread=new Thread(new Runnable() {
+			@Override
+			public void run() {
+				logger.debug("Start to handle ssl connection");
+				serverConnectionManager.handleSecureConnection(mySSLServer);
 			}
 		});
 		Thread exchangeThread=new Thread(new Runnable() {
@@ -81,7 +110,8 @@ public class ServerKernel {
 			}
 		});
 		logger.debug("starting listening thread and exchange thread");
-		listenThread.start();
+		listenNormalThread.start();
+		listenSSLThread.start();
 		exchangeThread.start();
 	}
 
@@ -101,12 +131,12 @@ public class ServerKernel {
 		this.resources = resources;
 	}
 
-	public List<ServerBean> getServerList() {
-		return serverList;
+	public List<ServerBean> getNormalServerList() {
+		return normalServerList;
 	}
 
-	public void setServerList(List<ServerBean> serverList) {
-		this.serverList = serverList;
+	public void setNormalServerList(List<ServerBean> normalServerList) {
+		this.normalServerList = normalServerList;
 	}
 
 	private void exchangeServers(){
@@ -117,28 +147,38 @@ public class ServerKernel {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			if (serverList.size() == 0) {
+			if (normalServerList.size() == 0&& sslServerList.size()==0) {
 				continue;
 			}
 			Random random = new Random();
 			List<ServerBean> diedServer = new ArrayList<>();
-			JSONArray serverArray = new JSONArray();
-			synchronized (serverList){
-				serverList.forEach(server -> {
+			List<ServerBean> diedSSLServer=new ArrayList<>();
+			JSONArray normalServerArray = new JSONArray();
+			JSONArray sslServerArray=new JSONArray();
+			synchronized (normalServerList){
+				normalServerList.forEach(server -> {
 					JSONObject serverObject = new JSONObject();
 					serverObject.put("hostname", server.getHostname());
 					serverObject.put("port", server.getPort());
-					serverArray.add(serverObject);
+					normalServerArray.add(serverObject);
 				});
 			}
-			random.ints(0, serverList.size()).distinct().limit(serverList.size() / 2).forEach(r -> {
+			synchronized (sslServerList) {
+				sslServerList.forEach(server -> {
+					JSONObject serverObject = new JSONObject();
+					serverObject.put("hostname", server.getHostname());
+					serverObject.put("port", server.getPort());
+					sslServerArray.add(serverObject);
+				});
+			}
+			random.ints(0, normalServerList.size()).distinct().limit(normalServerList.size() / 2).forEach(r -> {
 				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
-				messageObject.put("serverList", serverArray);
+				messageObject.put("normalServerList", normalServerArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
-				List<Message> messages = serverConnectionManager.establishConnection(serverList.get(r), message);
+				List<Message> messages = serverConnectionManager.establishConnection(normalServerList.get(r), message,false);
 				if (messages.size()==0){
-					diedServer.add(serverList.get(r));
+					diedServer.add(normalServerList.get(r));
 				}else {
 					JSONObject resultObject = null;
 					try {
@@ -147,13 +187,44 @@ public class ServerKernel {
 						e.printStackTrace();
 					}
 					if (!resultObject.containsKey("response") && resultObject.get("response").equals("success"))
-						diedServer.add(serverList.get(r));
+						diedServer.add(normalServerList.get(r));
 				}
 			});
-			synchronized (serverList){
-				serverList.removeAll(diedServer);
+			random.ints(0, sslServerList.size()).distinct().limit(sslServerList.size() / 2).forEach(r -> {
+				JSONObject messageObject = new JSONObject();
+				messageObject.put("command", "EXCHANGE");
+				messageObject.put("normalServerList", sslServerArray);
+				Message message = new Message(MessageType.STRING, messageObject.toString(), null, null);
+				List<Message> messages = serverConnectionManager.establishConnection(normalServerList.get(r), message, true);
+				if (messages.size() == 0) {
+					diedSSLServer.add(sslServerList.get(r));
+				} else {
+					JSONObject resultObject = null;
+					try {
+						resultObject = (JSONObject) (new JSONParser()).parse(messages.get(0).getMessage());
+					} catch (ParseException e) {
+						e.printStackTrace();
+					}
+					if (!resultObject.containsKey("response") && resultObject.get("response").equals("success"))
+						diedSSLServer.add(sslServerList.get(r));
+				}
+			});
+			synchronized (normalServerList){
+				normalServerList.removeAll(diedServer);
 			}
-			logger.debug("current servers:"+serverList);
+			synchronized (normalServerList) {
+				sslServerList.removeAll(diedServer);
+			}
+			logger.debug("current servers:"+ normalServerList);
+			logger.debug("current servers:" + sslServerList);
 		}
+	}
+	
+	public List<ServerBean> getSecureSeverList() {
+		return sslServerList;
+	}
+	
+	public void setSecureSeverList(List<ServerBean> secureSeverList) {
+		this.sslServerList = secureSeverList;
 	}
 }

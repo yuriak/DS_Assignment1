@@ -32,7 +32,7 @@ public class Connection implements Runnable {
 		try {
 			String commandString=inputStream.readUTF();
 			logger.debug("Received: "+commandString);
-			List<Message> messages = processor.processCommand(commandString);
+			List<Message> messages = processor.processCommand(commandString,false);
 			for (Message message : messages) {
 				if(message.getType()== MessageType.STRING){
 					outputStream.writeUTF(message.getMessage());

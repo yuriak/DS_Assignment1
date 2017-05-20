@@ -12,6 +12,8 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -22,6 +24,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Created by YURI-AK on 2017/4/10.
@@ -30,6 +33,7 @@ public class ClientKernel {
 
 	private static Logger logger=Logger.getLogger(ClientKernel.class);
 	private ServerBean targetServer;
+	private boolean secure=false;
 	public void processCommand(CommandLine cmd){
 		if (cmd.hasOption("debug")){
 			logger.info("Setting debug mode on");
@@ -41,13 +45,18 @@ public class ClientKernel {
 			return;
 		}
 		targetServer=null;
+		if(cmd.hasOption("secure")){
+			secure=true;
+			String keyPath = ClientKernel.class.getClassLoader().getResource("clienttrust").getPath();
+			System.setProperty("javax.net.ssl.trustStore", keyPath);
+		}
 		try {
 			int port= Integer.valueOf(cmd.getOptionValue("port"));
 			if (port<0||port>65535) {
 				logger.error("Port must be an integer between 0 and 65535");
 				return;
 			}
-			targetServer = new ServerBean(cmd.getOptionValue("host"), port);
+			targetServer = new ServerBean(cmd.getOptionValue("host"),port);
 		}catch (Exception e){
 			logger.error("Port must be an integer between 0 and 65535");
 			return;
@@ -75,7 +84,7 @@ public class ClientKernel {
 		JSONObject jsonObject=new JSONObject();
 		jsonObject.put("command","PUBLISH");
 		jsonObject.put("resource",Resource.toJson(resource));
-		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()),secure);
 	}
 
 	private void remove(CommandLine cmd) {
@@ -86,7 +95,7 @@ public class ClientKernel {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("command", "REMOVE");
 		jsonObject.put("resource", Resource.toJson(resource));
-		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()),secure);
 	}
 
 	private void share(CommandLine cmd) {
@@ -102,7 +111,7 @@ public class ClientKernel {
 		jsonObject.put("command", "SHARE");
 		jsonObject.put("resource", Resource.toJson(resource));
 		jsonObject.put("secret",cmd.getOptionValue("secret"));
-		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()),secure);
 	}
 
 	private void fetch(CommandLine cmd) {
@@ -114,20 +123,26 @@ public class ClientKernel {
 		jsonObject.put("command", "FETCH");
 		jsonObject.put("resourceTemplate", Resource.toJson(resource));
 		Socket socket = null;
+		DataInputStream inputStream = null;
+		DataOutputStream outputStream = null;
 		try {
-			socket = new Socket(targetServer.getHostname(), targetServer.getPort());
-			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
+			if(!secure){
+				socket = new Socket(targetServer.getHostname(), targetServer.getPort());
+			}else{
+				socket= (SSLSocket) SSLSocketFactory.getDefault().createSocket(targetServer.getHostname(),targetServer.getPort());
+			}
+			inputStream = new DataInputStream(socket.getInputStream());
+			outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(jsonObject.toString());
 			outputStream.flush();
 			logger.debug("Sent: "+jsonObject.toString());
-			if (inputStream.available()>-1){
-				String response=inputStream.readUTF();
+			String response=null;
+			if ((response=inputStream.readUTF())!=null){
 				logger.info("Received: " +response);
 				if (response.contains("error"))
 					return;
-				if (inputStream.available()>0){
-					String resourceInfoStr = inputStream.readUTF();
+				String resourceInfoStr=null;
+				if ((resourceInfoStr=inputStream.readUTF())!=null){
 					logger.info("Received: "+resourceInfoStr);
 					JSONParser parser=new JSONParser();
 					JSONObject resourceInfo = (JSONObject) (new JSONParser()).parse(resourceInfoStr);
@@ -176,7 +191,43 @@ public class ClientKernel {
 		jsonObject.put("relay", true);
 		jsonObject.put("resourceTemplate", Resource.toJson(resource));
 		logger.debug(jsonObject.toString());
-		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()),secure);
+	}
+	
+	private void subscribe(CommandLine cmd){
+		Resource resource=parseResourceCmd(cmd,false);
+		if(resource==null){
+			return;
+		}
+		JSONObject subscribeJsonObject=new JSONObject();
+		Random random=new Random(System.currentTimeMillis());
+		int id=random.nextInt();
+		subscribeJsonObject.put("command","SUBSCRIBE");
+		subscribeJsonObject.put("relay",true);
+		subscribeJsonObject.put("id", id+"");
+		subscribeJsonObject.put("resourceTemplate",Resource.toJson(resource));
+		JSONObject unsubscribJsonObject=new JSONObject();
+		unsubscribJsonObject.put("command","UNSUBSCRIBE");
+		unsubscribJsonObject.put("id",id+"");
+		ClientConnectionManager.establishPersistentConnection(targetServer, new Message(subscribeJsonObject.toString()), new ClientConnectionManager.KeyBoardListener() {
+			@Override
+			public boolean onKeyPressed(DataOutputStream sslOut, String string) {
+				try {
+					sslOut.writeUTF(unsubscribJsonObject.toString());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				return true;
+			}
+		}, new ClientConnectionManager.MessageListener() {
+			@Override
+			public boolean onMessageReceived(Message message) {
+				logger.info(message.getMessage());
+				return false;
+			}
+		}, secure);
+		logger.debug(subscribeJsonObject.toString());
+		
 	}
 
 	private void exchange(CommandLine cmd) {
@@ -208,7 +259,7 @@ public class ClientKernel {
 			serverArray.add(serverObject);
 		}
 		jsonObject.put("serverList",serverArray);
-		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()));
+		ClientConnectionManager.establishConnection(targetServer, new Message(jsonObject.toString()),secure);
 	}
 
 	private Resource parseResourceCmd(CommandLine cmd,boolean requireURI){

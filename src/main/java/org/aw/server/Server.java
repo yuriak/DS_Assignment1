@@ -20,6 +20,7 @@ public class Server {
 		options.addOption("connectionintervallimit",true,"connection interval limit in seconds");
 		options.addOption("exchangeinterval",true,"exchange interval in seconds");
 		options.addOption("port",true,"server port, an integer");
+		options.addOption("sport", true, "server secure port, an integer");
 		options.addOption("secret",true,"secret");
 		options.addOption("debug",false,"print debug information");
 		CommandLineParser parser=new DefaultParser();
@@ -58,10 +59,30 @@ public class Server {
 				if (port<0||port>65535){
 					logger.error("Port must be an integer between 0 and 65535");
 				}else {
-					ServerConfig.PORT = port;
+					if(port==ServerConfig.SPORT){
+						logger.error("Port should not be same as secure port");
+					}else{
+						ServerConfig.PORT = port;
+					}
 				}
 			}catch (Exception e){
 				logger.error("Port must be an integer between 0 and 65535");
+			}
+		}
+		if (cmd.hasOption("sport")) {
+			try {
+				int sport = Integer.parseInt(cmd.getOptionValue("sport"));
+				if (sport < 0 || sport > 65535) {
+					logger.error("Secure port must be an integer between 0 and 65535");
+				} else {
+					if(sport==ServerConfig.PORT){
+						logger.error("Secure port should not be same as port");
+					}else{
+						ServerConfig.SPORT = sport;
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Secure port must be an integer between 0 and 65535");
 			}
 		}
 		if (cmd.hasOption("secret")){

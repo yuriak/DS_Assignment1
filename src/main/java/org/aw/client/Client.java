@@ -32,6 +32,8 @@ public class Client {
 		options.addOption("share","share resource on server");
 		options.addOption("tags",true,"resource tags, tag1,tag2,tag3,...");
 		options.addOption("uri",true,"resource URI");
+		options.addOption("secure",false,"use secure connection");
+		options.addOption("subscribe",true,"subscribe matched resources");
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = null;
 		try {

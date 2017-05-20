@@ -37,28 +37,28 @@ public class ServerCommandProcessor {
 		return processor;
 	}
 
-	public List<Message> processCommand(String command){
+	public List<Message> processCommand(String command,boolean secure){
 		List<Message> messages = new ArrayList<Message>();
 		try {
 			JSONObject jsonObject= (JSONObject) (new JSONParser()).parse(command);
 			String cmd= (String) jsonObject.get("command");
 			logger.debug(cmd);
 			switch (cmd){
-				case "PUBLISH": messages.addAll(publish(jsonObject));
+				case "PUBLISH": messages.addAll(publish(jsonObject,secure));
 					break;
-				case "REMOVE": messages.addAll(remove(jsonObject));
+				case "REMOVE": messages.addAll(remove(jsonObject, secure));
 					break;
 				case "SHARE":
-					messages.addAll(share(jsonObject));
+					messages.addAll(share(jsonObject, secure));
 					break;
 				case "QUERY":
-					messages.addAll(query(jsonObject));
+					messages.addAll(query(jsonObject, secure));
 					break;
 				case "FETCH":
-					messages.addAll(fetch(jsonObject));
+					messages.addAll(fetch(jsonObject, secure));
 					break;
 				case "EXCHANGE":
-					messages.addAll(exchange(jsonObject));
+					messages.addAll(exchange(jsonObject, secure));
 					break;
 				default:
 					messages.addAll(sendErrorMessage("Invalid Command"));
@@ -71,7 +71,7 @@ public class ServerCommandProcessor {
 
 	}
 
-	private synchronized List<Message> publish(JSONObject jsonObject) {
+	private synchronized List<Message> publish(JSONObject jsonObject,boolean secure) {
 		if (!jsonObject.containsKey("resource"))
 			return sendErrorMessage("missing resource");
 		JSONObject resourceObject= (JSONObject) jsonObject.get("resource");
@@ -97,7 +97,7 @@ public class ServerCommandProcessor {
 
 
 
-	private synchronized List<Message> remove(JSONObject jsonObject){
+	private synchronized List<Message> remove(JSONObject jsonObject, boolean secure){
 		if (!jsonObject.containsKey("resource"))
 			return sendErrorMessage("missing resource");
 		JSONObject resourceObject = (JSONObject) jsonObject.get("resource");
@@ -117,7 +117,7 @@ public class ServerCommandProcessor {
 		return sendSuccessMessage();
 	}
 
-	private synchronized List<Message> share(JSONObject jsonObject){
+	private synchronized List<Message> share(JSONObject jsonObject, boolean secure){
 		if (!jsonObject.containsKey("resource")||!jsonObject.containsKey("secret"))
 			return sendErrorMessage("missing resource and/or secret");
 		if(!((String)jsonObject.get("secret")).equals(ServerConfig.SECRET))
@@ -126,7 +126,7 @@ public class ServerCommandProcessor {
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource = Resource.parseJson(resourceObject);
-		resource.setServerBean(kernel.getMyServer());
+		resource.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
 		if (resource == null || !resource.getUri().isAbsolute() || !resource.getUri().getScheme().equals("file")||resource.getUri().getAuthority()!=null ||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot share resource");
 		File file=new File(resource.getUri().getPath());
@@ -147,7 +147,7 @@ public class ServerCommandProcessor {
 	}
 
 
-	private synchronized List<Message> query(JSONObject jsonObject){
+	private synchronized List<Message> query(JSONObject jsonObject, boolean secure){
 		List<Message> messages = new ArrayList<>();
 		if (!jsonObject.containsKey("resourceTemplate")||!jsonObject.containsKey("relay"))
 			return sendErrorMessage("missing resourceTemplate");
@@ -169,7 +169,7 @@ public class ServerCommandProcessor {
 						Resource candidateResource = re.clone();
 						if (!candidateResource.getOwner().equals(""))
 							candidateResource.setOwner("*");
-						candidateResource.setServerBean(kernel.getMyServer());
+						candidateResource.setServerBean(kernel.getMyNormalServer());
 						candidates.add(candidateResource);
 					} catch (CloneNotSupportedException e) {
 						e.printStackTrace();
@@ -178,16 +178,16 @@ public class ServerCommandProcessor {
 			}
 		}
 		if (relay){
-			List<ServerBean> serverBeen =kernel.getServerList();
+			List<ServerBean> serverBeen =secure?kernel.getSslServerList():kernel.getNormalServerList();
 			for (ServerBean serverBean : serverBeen){
-				if (serverBean.equals(kernel.getMyServer())){
+				if (serverBean.equals(secure?kernel.getMySSLServer():kernel.getMyNormalServer())){
 					continue;
 				}
 				jsonObject.put("relay", false);
 				JSONObject templateObject=(JSONObject)jsonObject.get("resourceTemplate");
 				templateObject.put("owner","");
 				templateObject.put("channel","");
-				List<Message> results = kernel.getServerConnectionManager().establishConnection(serverBean, new Message(MessageType.STRING, jsonObject.toString(), null, null));
+				List<Message> results = kernel.getServerConnectionManager().establishConnection(serverBean, new Message(MessageType.STRING, jsonObject.toString(), null, null),secure);
 				if (results == null || results.size() == 0) {
 					continue;
 				}
@@ -213,7 +213,7 @@ public class ServerCommandProcessor {
 		return messages;
 	}
 
-	private List<Message>  fetch(JSONObject jsonObject){
+	private List<Message>  fetch(JSONObject jsonObject, boolean secure){
 		List<Message> messages = new ArrayList<>();
 		if (!jsonObject.containsKey("resourceTemplate")) return sendErrorMessage("missing resourceTemplate");
 		JSONObject resourceObject= (JSONObject) jsonObject.get("resourceTemplate");
@@ -230,8 +230,7 @@ public class ServerCommandProcessor {
 			return sendErrorMessage("cannot fetch resource");
 		if (!resource.getOwner().equals("")) resource.setOwner("*");
 		resource.setSize(file.length());
-		resource.setServerBean(kernel.getMyServer());
-		resourceObject=Resource.toJson(resource);
+		resource.setServerBean(kernel.getMyNormalServer());
 		messages.addAll(sendSuccessMessage());
 		messages.add(new Message(MessageType.STRING,Resource.toJson(resource).toString(),null,null));
 		messages.add(new Message(MessageType.FILE,null,null,file));
@@ -239,12 +238,9 @@ public class ServerCommandProcessor {
 		return messages;
 	}
 
-
-
-	private synchronized List<Message> exchange(JSONObject jsonObject){
+	private synchronized List<Message> exchange(JSONObject jsonObject, boolean secure){
 		if (!jsonObject.containsKey("serverList"))return sendErrorMessage("missing or invalid server list");
 		JSONArray serverArray= (JSONArray) jsonObject.get("serverList");
-//		System.out.println(jsonObject);
 		for (int i = 0; i < serverArray.size(); i++) {
 			JSONObject serverObject = (JSONObject) serverArray.get(i);
 			if (!serverObject.containsKey("hostname")||!serverObject.containsKey("port")) continue;
@@ -259,16 +255,25 @@ public class ServerCommandProcessor {
 				return sendErrorMessage("missing or invalid server list");
 			}
 			ServerBean serverBean =new ServerBean(hostname,port);
-			if (!kernel.getServerList().contains(serverBean)&&!serverBean.equals(kernel.getMyServer())){
-				synchronized (kernel.getServerList()){
-					kernel.getServerList().add(serverBean);
+			if(secure){
+				if (!kernel.getSslServerList().contains(serverBean) && !serverBean.equals(kernel.getMySSLServer())) {
+					synchronized (kernel.getSslServerList()) {
+						kernel.getSslServerList().add(serverBean);
+					}
+				}
+			}else{
+				if (!kernel.getNormalServerList().contains(serverBean) && !serverBean.equals(kernel.getMyNormalServer())) {
+					synchronized (kernel.getNormalServerList()) {
+						kernel.getNormalServerList().add(serverBean);
+					}
 				}
 			}
 		}
 //		System.out.println("receive: "+serverArray.toString());
 		return sendSuccessMessage();
 	}
-
+	
+	
 
 	private static List<Message> sendErrorMessage(String message){
 		List<Message> messages =new ArrayList<>();
@@ -292,5 +297,4 @@ public class ServerCommandProcessor {
 		messages.add(message);
 		return messages;
 	}
-
 }
