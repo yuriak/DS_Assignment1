@@ -1,10 +1,7 @@
 package org.aw.server;
 
 import org.apache.log4j.Logger;
-import org.aw.comman.Message;
-import org.aw.comman.MessageType;
-import org.aw.comman.Resource;
-import org.aw.comman.ServerBean;
+import org.aw.comman.*;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -42,7 +39,6 @@ public class ServerKernel {
 	private ServerConnectionManager serverConnectionManager;
 	private List<Resource> resources;
 	private List<ServerBean> normalServerList;
-	
 	public ServerBean getMySSLServer() {
 		return mySSLServer;
 	}
@@ -99,6 +95,8 @@ public class ServerKernel {
 		Thread listenSSLThread=new Thread(new Runnable() {
 			@Override
 			public void run() {
+				System.setProperty("javax.net.ssl.keyStore", CommonConfig.SERVER_KEYSTORE_PATH);
+				System.setProperty("javax.net.ssl.keyStorePassword", CommonConfig.SERVER_KEYSTORE_PASSWD);
 				logger.debug("Start to handle ssl connection");
 				serverConnectionManager.handleSecureConnection(mySSLServer);
 			}
@@ -174,7 +172,7 @@ public class ServerKernel {
 			random.ints(0, normalServerList.size()).distinct().limit(normalServerList.size() / 2).forEach(r -> {
 				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
-				messageObject.put("normalServerList", normalServerArray);
+				messageObject.put("serverList", normalServerArray);
 				Message message = new Message(MessageType.STRING,messageObject.toString(),null,null);
 				List<Message> messages = serverConnectionManager.establishConnection(normalServerList.get(r), message,false);
 				if (messages.size()==0){
@@ -193,7 +191,7 @@ public class ServerKernel {
 			random.ints(0, sslServerList.size()).distinct().limit(sslServerList.size() / 2).forEach(r -> {
 				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
-				messageObject.put("normalServerList", sslServerArray);
+				messageObject.put("serverList", sslServerArray);
 				Message message = new Message(MessageType.STRING, messageObject.toString(), null, null);
 				List<Message> messages = serverConnectionManager.establishConnection(normalServerList.get(r), message, true);
 				if (messages.size() == 0) {
@@ -215,8 +213,8 @@ public class ServerKernel {
 			synchronized (normalServerList) {
 				sslServerList.removeAll(diedServer);
 			}
-			logger.debug("current servers:"+ normalServerList);
-			logger.debug("current servers:" + sslServerList);
+//			logger.debug("current servers:"+ normalServerList);
+//			logger.debug("current secured servers:" + sslServerList);
 		}
 	}
 	
@@ -227,4 +225,5 @@ public class ServerKernel {
 	public void setSecureSeverList(List<ServerBean> secureSeverList) {
 		this.sslServerList = secureSeverList;
 	}
+	
 }

@@ -9,9 +9,7 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -26,11 +24,13 @@ import java.util.concurrent.TimeUnit;
  * Created by YURI-AK on 2017/4/5.
  */
 public class ServerConnectionManager {
-	Logger logger=Logger.getLogger(ServerConnectionManager.class);
+	private static Logger logger=Logger.getLogger(ServerConnectionManager.class);
 	private Map<String,Long> intervalMap;
 	private ThreadPoolExecutor executor;
+	private ThreadPoolExecutor persistentExecutor;
 	public ServerConnectionManager() {
 		executor = new ThreadPoolExecutor(50, Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		persistentExecutor=new ThreadPoolExecutor(100,Integer.MAX_VALUE,60,TimeUnit.SECONDS,new LinkedBlockingQueue<Runnable>());
 		intervalMap=new ConcurrentHashMap<>();
 	}
 
@@ -39,14 +39,13 @@ public class ServerConnectionManager {
 			ServerSocket serverSocket = new ServerSocket(serverBean.getPort());
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
-				clientSocket.setSoTimeout(ServerConfig.TIME_OUT);
 				String ipAddress=clientSocket.getInetAddress().getHostAddress();
 				logger.debug("Handel connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
 				if (!checkConnectionInterval(ipAddress)){
 					clientSocket.close();
 					continue;
 				}
-				executor.execute(new Connection(clientSocket));
+				executor.execute(new Connection(clientSocket,false,false));
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -59,20 +58,20 @@ public class ServerConnectionManager {
 			SSLServerSocket sslserversocket = (SSLServerSocket) sslserversocketfactory.createServerSocket(ServerConfig.SPORT);
 			while (true) {
 				SSLSocket sslClientSocket = (SSLSocket) sslserversocket.accept();
-				sslClientSocket.setSoTimeout(ServerConfig.TIME_OUT);
 				String ipAddress = sslClientSocket.getInetAddress().getHostAddress();
 				logger.debug("Handel secure connection: " + sslClientSocket.getInetAddress().getHostAddress() + ":" + sslClientSocket.getPort());
 				if (!checkConnectionInterval(ipAddress)) {
 					sslClientSocket.close();
 					continue;
 				}
-				executor.execute(new SecureConnection(sslClientSocket));
+				executor.execute(new Connection(sslClientSocket,false,true));
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
+	
 	
 	private boolean checkConnectionInterval(String ipAddress){
 		if (!intervalMap.containsKey(ipAddress)) {
@@ -86,7 +85,6 @@ public class ServerConnectionManager {
 				return true;
 			}
 		}
-		
 	}
 	
 	public int getActiveConnectionNumber() {
@@ -111,25 +109,57 @@ public class ServerConnectionManager {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage().replaceAll("\0", "").trim());
 			outputStream.flush();
-			logger.debug("Securely sent: " + message.getMessage());
+			logger.debug(secure ? "Securely" : "" + "sent: " + message.getMessage());
 			String data = null;
 			while ((data = inputStream.readUTF()) != null) {
-				logger.info("Securely received: " + data);
+				logger.info(secure?"Securely":""+"received: " + data);
 				response = new Message(MessageType.STRING, data.replaceAll("\0", ""), null, null);
 				messages.add(response);
 			}
 		} catch (IOException e) {
-			logger.info("Lost secure connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+			logger.debug("Lost "+(secure?"Secure":"")+" connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 		} finally {
 			try {
 				if (socket != null) {
 					socket.close();
-					logger.info("Close secure connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+					logger.debug("Close "+(secure?"Secure":"")+" connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 			return messages;
 		}
+	}
+	
+	public void establishPersistentConnection(ServerBean serverBean, Message initialMessage, ConnectionManagerMessageListener messageReceivedListener, boolean secure) {
+		try {
+			Socket socket = null;
+			if (secure) {
+				SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+				socket = (SSLSocket) sslsocketfactory.createSocket(serverBean.getAddress(), serverBean.getPort());
+			} else {
+				socket = new Socket(serverBean.getAddress(), serverBean.getPort());
+			}
+			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
+			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
+			String string=null;
+			try {
+				while ((string = inputStream.readUTF()) != null) {
+					Message response = new Message(string);
+					logger.debug(secure ? "Securely" : "" + "received: "+response.getMessage());
+					if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
+				}
+				socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	interface ConnectionManagerMessageListener {
+		boolean onMessageReceived(Message message,DataOutputStream outputStream);
 	}
 }

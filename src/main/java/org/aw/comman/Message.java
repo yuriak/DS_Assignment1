@@ -1,6 +1,8 @@
 package org.aw.comman;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by YURI-AK on 2017/4/5.
@@ -53,6 +55,18 @@ public class Message {
 
 	public void setBytes(byte[] bytes) {
 		this.bytes = bytes;
+	}
+	
+	public static List<Message> makeAMessage(String string){
+		List<Message> messages=new ArrayList<>();
+		messages.add(new Message(string));
+		return messages;
+	}
+	
+	public static List<Message> makeMessage(Message message){
+		List<Message> messages = new ArrayList<>();
+		messages.add(message);
+		return messages;
 	}
 
 }

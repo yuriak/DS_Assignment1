@@ -73,6 +73,8 @@ public class ClientKernel {
 			fetch(cmd);
 		} else if (cmd.hasOption("exchange")) {
 			exchange(cmd);
+		}else if (cmd.hasOption("subscribe")){
+			subscribe(cmd);
 		}
 	}
 
@@ -196,9 +198,6 @@ public class ClientKernel {
 	
 	private void subscribe(CommandLine cmd){
 		Resource resource=parseResourceCmd(cmd,false);
-		if(resource==null){
-			return;
-		}
 		JSONObject subscribeJsonObject=new JSONObject();
 		Random random=new Random(System.currentTimeMillis());
 		int id=random.nextInt();
@@ -214,6 +213,7 @@ public class ClientKernel {
 			public boolean onKeyPressed(DataOutputStream sslOut, String string) {
 				try {
 					sslOut.writeUTF(unsubscribJsonObject.toString());
+					sslOut.flush();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -223,11 +223,19 @@ public class ClientKernel {
 			@Override
 			public boolean onMessageReceived(Message message) {
 				logger.info(message.getMessage());
+				try {
+					JSONObject responseObject= (JSONObject) (new JSONParser()).parse(message.getMessage());
+					if (responseObject.containsKey("resultSize")){
+						return true;
+					}
+				} catch (ParseException e) {
+					e.printStackTrace();
+					return true;
+				}
 				return false;
 			}
 		}, secure);
 		logger.debug(subscribeJsonObject.toString());
-		
 	}
 
 	private void exchange(CommandLine cmd) {

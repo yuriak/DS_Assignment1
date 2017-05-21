@@ -88,7 +88,6 @@ public class ClientConnectionManager {
 		try {
 			Socket socket = null;
 			if (secure) {
-				
 				SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) sslsocketfactory.createSocket(serverBean.getAddress(), serverBean.getPort());
 			} else {
@@ -97,7 +96,8 @@ public class ClientConnectionManager {
 			BufferedReader sysReader = new BufferedReader(new InputStreamReader(System.in));
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-			
+			outputStream.writeUTF(initialMessage.getMessage());
+			Socket finalSocket = socket;
 			new Thread(new Runnable() {
 				@Override
 				public void run() {
@@ -105,8 +105,11 @@ public class ClientConnectionManager {
 					try {
 						while ((string = inputStream.readUTF()) != null) {
 							Message response=new Message(string);
-							if(messageReceivedListener.onMessageReceived(response)) break;
+							if(messageReceivedListener.onMessageReceived(response)){
+								break;
+							}
 						}
+						finalSocket.close();
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -119,13 +122,16 @@ public class ClientConnectionManager {
 					String string = null;
 					try {
 						while ((string = sysReader.readLine()) != null) {
-							if(keyPressListener.onKeyPressed(outputStream,string)) break;
+							if(keyPressListener.onKeyPressed(outputStream,string)){
+								break;
+							}
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 				}
 			}).start();
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
