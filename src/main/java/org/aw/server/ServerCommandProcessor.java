@@ -98,6 +98,7 @@ public class ServerCommandProcessor {
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource=Resource.parseJson(resourceObject);
+		resource.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
 		if (resource==null|| !resource.getUri().isAbsolute() || resource.getUri().getScheme().equals("file")||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot publish resource");
 		List<Resource> resources = kernel.getResources();
@@ -178,7 +179,6 @@ public class ServerCommandProcessor {
 				}
 			}
 		}
-//		resources.forEach(re -> System.out.println(Resource.toJson(re).toString()));
 		return sendSuccessMessage();
 	}
 
@@ -295,17 +295,30 @@ public class ServerCommandProcessor {
 				if (!kernel.getSslServerList().contains(serverBean) && !serverBean.equals(kernel.getMySSLServer())) {
 					synchronized (kernel.getSslServerList()) {
 						kernel.getSslServerList().add(serverBean);
+						if (!serverBean.equals(secure?kernel.getMySSLServer():kernel.getMyNormalServer())){
+							for (Subscriber subscriber : subscribers) {
+								if (subscriber != null) {
+									subscriber.onSecureServerChanged(serverBean);
+								}
+							}
+						}
 					}
 				}
 			}else{
 				if (!kernel.getNormalServerList().contains(serverBean) && !serverBean.equals(kernel.getMyNormalServer())) {
 					synchronized (kernel.getNormalServerList()) {
 						kernel.getNormalServerList().add(serverBean);
+						if (!serverBean.equals(secure ? kernel.getMySSLServer() : kernel.getMyNormalServer())) {
+							for (Subscriber subscriber : subscribers) {
+								if (subscriber != null) {
+									subscriber.onNormalServerChanged(serverBean);
+								}
+							}
+						}
 					}
 				}
 			}
 		}
-//		System.out.println("receive: "+serverArray.toString());
 		return sendSuccessMessage();
 	}
 	
@@ -389,12 +402,17 @@ public class ServerCommandProcessor {
 	interface ResourceListener{
 		void onResourceChanged(Resource resource);
 	}
-	
+
+	interface ServerListener{
+		void onNormalServerChanged(ServerBean serverBean);
+		void onSecureServerChanged(ServerBean serverBean);
+	}
 	private void setResourceListener(ResourceListener resourceListener){
 	
 	}
-	
-	class Subscriber implements Runnable,ResourceListener{
+
+
+	class Subscriber implements Runnable,ResourceListener,ServerListener{
 		private ProcessorListener processorListener;
 		private Resource template;
 		private DataInputStream inputStream;
@@ -404,6 +422,7 @@ public class ServerCommandProcessor {
 		private int state;
 		public static final int RUNNING=1;
 		public static final int STOPPED = 0;
+		private List<Thread> relayList;
 		private int resultSize=0;
 		Subscriber(ProcessorListener messageListener,String id,Resource template,DataInputStream inputStream,boolean relay,boolean secure){
 			this.processorListener =messageListener;
@@ -412,6 +431,7 @@ public class ServerCommandProcessor {
 			this.relay=relay;
 			this.secure=secure;
 			this.id=id;
+			this.relayList= Collections.synchronizedList(new ArrayList<>());
 		}
 		@Override
 		public void run() {
@@ -448,6 +468,7 @@ public class ServerCommandProcessor {
 			if (relay){
 				List<ServerBean> serverList=secure?kernel.getSslServerList():kernel.getNormalServerList();
 				for (ServerBean serverBean:serverList){
+					if (serverBean.equals(secure?kernel.getMySSLServer():kernel.getMyNormalServer())) continue;
 					Thread thread=new Thread(new Runnable() {
 						@Override
 						public void run() {
@@ -459,18 +480,26 @@ public class ServerCommandProcessor {
 							kernel.getServerConnectionManager().establishPersistentConnection(serverBean, new Message(subscribeObject.toString()), new ServerConnectionManager.ConnectionManagerMessageListener() {
 								@Override
 								public boolean onMessageReceived(Message message, DataOutputStream outputStream) {
-									processorListener.onProcessFinished(Message.makeMessage(message),false);
-									resultSize++;
-									return false;
+									try {
+										JSONObject transferJsonObject = (JSONObject) (new JSONParser()).parse(message.getMessage());
+										if (transferJsonObject.containsKey("response") || transferJsonObject.containsKey("resultSize"))
+											return false;
+										processorListener.onProcessFinished(Message.makeMessage(message), false);
+										resultSize++;
+										return false;
+									} catch (ParseException e) {
+										e.printStackTrace();
+										return true;
+									}
 								}
 							},secure);
 						}
 					});
 					thread.start();
+					relayList.add(thread);
 				}
 			}
 			listeningUnsubscribeThread.start();
-			
 		}
 
 		@Override
@@ -479,6 +508,8 @@ public class ServerCommandProcessor {
 					(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> this.template.getTags().contains(tag))) &&
 					(resource.getUri().toString().equals("") || resource.getUri().equals(this.template.getUri())) &&
 					((resource.getName().equals("") || this.template.getName().contains(resource.getName())) || (resource.getDescription().equals("") || this.template.getDescription().contains(resource.getDescription())))) {
+				resource.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
+				resource.setOwner("*");
 				this.resultSize++;
 				processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(resource).toString()),false);
 			}
@@ -490,6 +521,75 @@ public class ServerCommandProcessor {
 		
 		public void setState(int state) {
 			this.state = state;
+		}
+
+		@Override
+		public void onNormalServerChanged(ServerBean serverBean) {
+			if (!secure&&relay){
+				System.out.println("call server change");
+				Thread thread = new Thread(new Runnable() {
+					@Override
+					public void run() {
+						JSONObject subscribeObject = new JSONObject();
+						subscribeObject.put("id", id);
+						subscribeObject.put("resourceTemplate", Resource.toJson(template));
+						subscribeObject.put("command", "SUBSCRIBE");
+						subscribeObject.put("relay", false);
+						kernel.getServerConnectionManager().establishPersistentConnection(serverBean, new Message(subscribeObject.toString()), new ServerConnectionManager.ConnectionManagerMessageListener() {
+							@Override
+							public boolean onMessageReceived(Message message, DataOutputStream outputStream) {
+								try {
+									JSONObject transferJsonObject= (JSONObject) (new JSONParser()).parse(message.getMessage());
+									if (transferJsonObject.containsKey("response")||transferJsonObject.containsKey("resultSize"))
+										return false;
+									processorListener.onProcessFinished(Message.makeMessage(message), false);
+									resultSize++;
+									return false;
+								} catch (ParseException e) {
+									e.printStackTrace();
+									return true;
+								}
+							}
+						}, secure);
+					}
+				});
+				thread.start();
+				relayList.add(thread);
+			}
+		}
+
+		@Override
+		public void onSecureServerChanged(ServerBean serverBean) {
+			if (secure&&relay){
+				Thread thread = new Thread(new Runnable() {
+					@Override
+					public void run() {
+						JSONObject subscribeObject = new JSONObject();
+						subscribeObject.put("id", id);
+						subscribeObject.put("resourceTemplate", Resource.toJson(template));
+						subscribeObject.put("command", "SUBSCRIBE");
+						subscribeObject.put("relay", false);
+						kernel.getServerConnectionManager().establishPersistentConnection(serverBean, new Message(subscribeObject.toString()), new ServerConnectionManager.ConnectionManagerMessageListener() {
+							@Override
+							public boolean onMessageReceived(Message message, DataOutputStream outputStream) {
+								try {
+									JSONObject transferJsonObject = (JSONObject) (new JSONParser()).parse(message.getMessage());
+									if (transferJsonObject.containsKey("response") || transferJsonObject.containsKey("resultSize"))
+										return false;
+									processorListener.onProcessFinished(Message.makeMessage(message), false);
+									resultSize++;
+									return false;
+								} catch (ParseException e) {
+									e.printStackTrace();
+									return true;
+								}
+							}
+						}, secure);
+					}
+				});
+				thread.start();
+				relayList.add(thread);
+			}
 		}
 	}
 }

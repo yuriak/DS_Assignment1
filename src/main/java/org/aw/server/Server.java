@@ -1,8 +1,6 @@
 package org.aw.server;
 
 import org.apache.commons.cli.*;
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
@@ -90,9 +88,6 @@ public class Server {
 		}
 		if (cmd.hasOption("debug")){
 			ServerConfig.DEBUG=true;
-			logger.info("Setting debug mode on");
-			Level level = Level.toLevel(Level.DEBUG_INT);
-			LogManager.getRootLogger().setLevel(level);
 		}
 		ServerKernel kernel = ServerKernel.getInstance();
 		kernel.initServer();

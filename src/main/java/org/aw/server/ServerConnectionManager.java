@@ -92,10 +92,8 @@ public class ServerConnectionManager {
 	}
 
 	public List<Message> establishConnection(ServerBean serverBean, Message message,boolean secure) {
-		
 		Message response = null;
 		List<Message> messages = new ArrayList<>();
-		
 		SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 		Socket socket = null;
 		try {
@@ -109,10 +107,10 @@ public class ServerConnectionManager {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage().replaceAll("\0", "").trim());
 			outputStream.flush();
-			logger.debug(secure ? "Securely" : "" + "sent: " + message.getMessage());
+			logger.debug(secure ? "Securely " : "" + "sent: " + message.getMessage());
 			String data = null;
 			while ((data = inputStream.readUTF()) != null) {
-				logger.info(secure?"Securely":""+"received: " + data);
+				logger.info(secure?"Securely ":""+"received: " + data);
 				response = new Message(MessageType.STRING, data.replaceAll("\0", ""), null, null);
 				messages.add(response);
 			}
@@ -142,13 +140,17 @@ public class ServerConnectionManager {
 			}
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
+			outputStream.writeUTF(initialMessage.getMessage());
+			outputStream.flush();
+			logger.debug(secure ? "Securely " : "" + "sent: "+initialMessage.getMessage()+" through persistent connection");
 			String string=null;
 			try {
 				while ((string = inputStream.readUTF()) != null) {
 					Message response = new Message(string);
-					logger.debug(secure ? "Securely" : "" + "received: "+response.getMessage());
+					logger.debug(secure ? "Securely " : "" + "received: "+response.getMessage()+" through persistent connection");
 					if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
 				}
+				logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				socket.close();
 			} catch (IOException e) {
 				e.printStackTrace();

@@ -1,5 +1,7 @@
 package org.aw.server;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.aw.comman.*;
 import org.json.simple.JSONArray;
@@ -83,6 +85,9 @@ public class ServerKernel {
 		serverConnectionManager =new ServerConnectionManager();
 		logger.info("Init Server: "+ myNormalServer.getHostname()+":"+ myNormalServer.getPort()+", SSL:"+mySSLServer.getPort());
 		logger.info("Using secret: "+ServerConfig.SECRET);
+		logger.info("Setting debug mode on");
+		Level level = Level.toLevel(Level.DEBUG_INT);
+		LogManager.getRootLogger().setLevel(level);
 	}
 
 	public void startServer(){
@@ -95,8 +100,6 @@ public class ServerKernel {
 		Thread listenSSLThread=new Thread(new Runnable() {
 			@Override
 			public void run() {
-				System.setProperty("javax.net.ssl.keyStore", CommonConfig.SERVER_KEYSTORE_PATH);
-				System.setProperty("javax.net.ssl.keyStorePassword", CommonConfig.SERVER_KEYSTORE_PASSWD);
 				logger.debug("Start to handle ssl connection");
 				serverConnectionManager.handleSecureConnection(mySSLServer);
 			}
@@ -170,6 +173,9 @@ public class ServerKernel {
 				});
 			}
 			random.ints(0, normalServerList.size()).distinct().limit(normalServerList.size() / 2).forEach(r -> {
+				if (normalServerList.get(r).equals(myNormalServer)){
+					return;
+				}
 				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", normalServerArray);
@@ -189,6 +195,9 @@ public class ServerKernel {
 				}
 			});
 			random.ints(0, sslServerList.size()).distinct().limit(sslServerList.size() / 2).forEach(r -> {
+				if (sslServerList.get(r).equals(mySSLServer)){
+					return;
+				}
 				JSONObject messageObject = new JSONObject();
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", sslServerArray);

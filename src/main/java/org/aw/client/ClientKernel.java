@@ -47,8 +47,7 @@ public class ClientKernel {
 		targetServer=null;
 		if(cmd.hasOption("secure")){
 			secure=true;
-			String keyPath = ClientKernel.class.getClassLoader().getResource("clienttrust").getPath();
-			System.setProperty("javax.net.ssl.trustStore", keyPath);
+			System.setProperty("javax.net.ssl.trustStore", ClientConfig.CLIENT_TRUST_KEYSTORE_PATH);
 		}
 		try {
 			int port= Integer.valueOf(cmd.getOptionValue("port"));
