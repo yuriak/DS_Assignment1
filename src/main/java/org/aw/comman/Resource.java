@@ -191,4 +191,18 @@ public class Resource implements Cloneable {
         copiedResource.setSize(this.size);
         return copiedResource;
     }
+    
+    @Override
+    public String toString() {
+        return "Resource{" +
+                "name='" + name + '\'' +
+                ", description='" + description + '\'' +
+                ", tags=" + tags +
+                ", uri=" + uri +
+                ", size=" + size +
+                ", channel='" + channel + '\'' +
+                ", owner='" + owner + '\'' +
+                ", serverBean=" + serverBean +
+                '}';
+    }
 }

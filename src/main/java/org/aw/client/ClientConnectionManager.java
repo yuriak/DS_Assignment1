@@ -109,7 +109,7 @@ public class ClientConnectionManager {
 								break;
 							}
 						}
-						finalSocket.close();
+//						finalSocket.close();
 					} catch (IOException e) {
 						e.printStackTrace();
 					}

@@ -202,7 +202,7 @@ public class ServerKernel {
 				messageObject.put("command", "EXCHANGE");
 				messageObject.put("serverList", sslServerArray);
 				Message message = new Message(MessageType.STRING, messageObject.toString(), null, null);
-				List<Message> messages = serverConnectionManager.establishConnection(normalServerList.get(r), message, true);
+				List<Message> messages = serverConnectionManager.establishConnection(sslServerList.get(r), message, true);
 				if (messages.size() == 0) {
 					diedSSLServer.add(sslServerList.get(r));
 				} else {

@@ -45,7 +45,7 @@ public class Connection implements Runnable {
 							if (message.getType() == MessageType.STRING) {
 								outputStream.writeUTF(message.getMessage());
 								outputStream.flush();
-								logger.debug((secure ? "Securely" : "") + "Sent: " + message.getMessage());
+								logger.debug((secure ? "Securely" : "") + "Sent: " + message.getMessage() +" to "+clientSocket.getInetAddress()+":"+clientSocket.getPort());
 							} else if (message.getType() == MessageType.BYTES) {
 								outputStream.write(message.getBytes());
 								outputStream.flush();
@@ -66,10 +66,14 @@ public class Connection implements Runnable {
 						return true;
 					} catch (IOException e) {
 						logger.debug("Lost " + (secure ? "secure" : "") + "connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+						try {
+							clientSocket.close();
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
 						return false;
 					} finally {
 						try {
-							
 							if (closeConnection&&!clientSocket.isClosed()){
 								clientSocket.close();
 								logger.debug("Close " + (secure ? "secure" : "") + " connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());

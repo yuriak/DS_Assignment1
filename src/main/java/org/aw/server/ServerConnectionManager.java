@@ -129,9 +129,9 @@ public class ServerConnectionManager {
 		}
 	}
 	
-	public void establishPersistentConnection(ServerBean serverBean, Message initialMessage, ConnectionManagerMessageListener messageReceivedListener, boolean secure) {
+	public void establishPersistentConnection(ServerBean serverBean, Message initialMessage, ConnectionManagerMessageListener messageReceivedListener,StateListener stateListener, boolean secure) {
+		Socket socket = null;
 		try {
-			Socket socket = null;
 			if (secure) {
 				SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				socket = (SSLSocket) sslsocketfactory.createSocket(serverBean.getAddress(), serverBean.getPort());
@@ -143,25 +143,57 @@ public class ServerConnectionManager {
 			outputStream.writeUTF(initialMessage.getMessage());
 			outputStream.flush();
 			logger.debug(secure ? "Securely " : "" + "sent: "+initialMessage.getMessage()+" through persistent connection");
-			String string=null;
-			try {
-				while ((string = inputStream.readUTF()) != null) {
-					Message response = new Message(string);
-					logger.debug(secure ? "Securely " : "" + "received: "+response.getMessage()+" through persistent connection");
-					if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
+			Socket finalSocket = socket;
+			Thread listeningThread=new Thread(new Runnable() {
+				@Override
+				public void run() {
+					String string = null;
+					try {
+						while ((string = inputStream.readUTF()) != null) {
+							Message response = new Message(string);
+							logger.debug(secure ? "Securely " : "" + "received: " + response.getMessage() + " through persistent connection");
+							if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
+						}
+						logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + finalSocket.getInetAddress().getHostAddress() + ":" + finalSocket.getPort());
+						finalSocket.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+						if (finalSocket!=null){
+							try {
+								finalSocket.close();
+							} catch (IOException e1) {
+								e1.printStackTrace();
+							}
+						}
+					}
 				}
-				logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
-				socket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+			});
+			listeningThread.start();
+			while (true){
+				if (stateListener.onForceStop(outputStream)||socket.isClosed()){
+					socket.close();
+					break;
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+		}finally {
+			try {
+				if (socket!=null){
+					socket.close();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
 	
 	interface ConnectionManagerMessageListener {
 		boolean onMessageReceived(Message message,DataOutputStream outputStream);
+	}
+	
+	interface StateListener{
+		boolean onForceStop(DataOutputStream outputStream);
 	}
 }

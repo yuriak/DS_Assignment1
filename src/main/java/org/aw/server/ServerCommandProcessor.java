@@ -103,8 +103,11 @@ public class ServerCommandProcessor {
 			return sendErrorMessage("cannot publish resource");
 		List<Resource> resources = kernel.getResources();
 		synchronized (resources){
-			if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner())))
+			if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner()))){
+				System.out.println("cnnot");
 				return sendErrorMessage("cannot publish resource");
+			}
+			
 			List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
 			if (sameResource.size() > 0) {
 				resources.set(resources.indexOf(sameResource.get(0)), resource);
@@ -348,27 +351,10 @@ public class ServerCommandProcessor {
 		while (true){
 			if (subscriber.getState()==Subscriber.STOPPED){
 				subscribingThread.interrupt();
+				subscribingThread = null;
+				break;
 			}
 		}
-//		new Thread(new Runnable() {
-//			@Override
-//			public void run() {
-//				String string=null;
-//				while (true){
-//					try {
-//						if((string=inputStream.readUTF())!=null){
-//							System.out.println(string);
-//							if(processorListener.onProcessFinished(resultSize,true)){
-//								break;
-//							}
-//						}
-//					} catch (IOException e) {
-//						e.printStackTrace();
-//						break;
-//					}
-//				}
-//			}
-//		}).start();
 	}
 	
 
@@ -419,9 +405,10 @@ public class ServerCommandProcessor {
 		private boolean relay;
 		private boolean secure;
 		private String id;
-		private int state;
+		
 		public static final int RUNNING=1;
 		public static final int STOPPED = 0;
+		private volatile int state=RUNNING;
 		private List<Thread> relayList;
 		private int resultSize=0;
 		Subscriber(ProcessorListener messageListener,String id,Resource template,DataInputStream inputStream,boolean relay,boolean secure){
@@ -445,26 +432,40 @@ public class ServerCommandProcessor {
 							if ((string=inputStream.readUTF())!=null){
 								JSONObject commandObject= (JSONObject) (new JSONParser()).parse(string);
 								if (commandObject.containsKey("command")&&commandObject.containsKey("id")){
-									if (((String)commandObject.get("command")).equals("UNSUBSCRIBE")&&((String)commandObject.get("id")).equals(id)){
-										JSONObject resultSizeObject=new JSONObject();
-										resultSizeObject.put("resultSize",resultSize);
-										processorListener.onProcessFinished(Message.makeAMessage(resultSizeObject.toString()),true);
-										state = Subscriber.STOPPED;
+									if (((String)commandObject.get("command")).equals("UNSUBSCRIBE")){
+										if (commandObject.get("id").equals(id)){
+											JSONObject resultSizeObject = new JSONObject();
+											resultSizeObject.put("resultSize", resultSize);
+											processorListener.onProcessFinished(Message.makeAMessage(resultSizeObject.toString()), true);
+											state = Subscriber.STOPPED;
+											break;
+										}
 									}
 								}
 							}
 						} catch (IOException e) {
 							e.printStackTrace();
 							state=Subscriber.STOPPED;
+							if (relay){
+								for (Thread thread : relayList) {
+									thread.interrupt();
+								}
+							}
 							break;
 						} catch (ParseException e) {
 							e.printStackTrace();
 							state = Subscriber.STOPPED;
+							if (relay) {
+								for (Thread thread : relayList) {
+									thread.interrupt();
+								}
+							}
 							break;
 						}
 					}
 				}
 			});
+			listeningUnsubscribeThread.start();
 			if (relay){
 				List<ServerBean> serverList=secure?kernel.getSslServerList():kernel.getNormalServerList();
 				for (ServerBean serverBean:serverList){
@@ -484,22 +485,42 @@ public class ServerCommandProcessor {
 										JSONObject transferJsonObject = (JSONObject) (new JSONParser()).parse(message.getMessage());
 										if (transferJsonObject.containsKey("response") || transferJsonObject.containsKey("resultSize"))
 											return false;
-										processorListener.onProcessFinished(Message.makeMessage(message), false);
+										if(!processorListener.onProcessFinished(Message.makeMessage(message), false)){
+											state=STOPPED;
+											return true;
+										}
 										resultSize++;
+										if (state==STOPPED){
+											return true;
+										}
 										return false;
 									} catch (ParseException e) {
 										e.printStackTrace();
 										return true;
 									}
 								}
-							},secure);
+							}, new ServerConnectionManager.StateListener() {
+								@Override
+								public boolean onForceStop(DataOutputStream outputStream) {
+									if (state==Subscriber.STOPPED){
+										try {
+											outputStream.writeUTF("{\"command\":\"UBSUBSCRIBE\", \"id\":"+id+"}");
+											outputStream.flush();
+										} catch (IOException e) {
+											e.printStackTrace();
+										}
+										return true;
+									}
+									return false;
+								}
+							}, secure);
 						}
 					});
 					thread.start();
 					relayList.add(thread);
 				}
 			}
-			listeningUnsubscribeThread.start();
+			
 		}
 
 		@Override
@@ -508,8 +529,14 @@ public class ServerCommandProcessor {
 					(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> this.template.getTags().contains(tag))) &&
 					(resource.getUri().toString().equals("") || resource.getUri().equals(this.template.getUri())) &&
 					((resource.getName().equals("") || this.template.getName().contains(resource.getName())) || (resource.getDescription().equals("") || this.template.getDescription().contains(resource.getDescription())))) {
-				resource.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
-				resource.setOwner("*");
+				Resource candidate= null;
+				try {
+					candidate = resource.clone();
+				} catch (CloneNotSupportedException e) {
+					e.printStackTrace();
+				}
+				candidate.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
+				candidate.setOwner("*");
 				this.resultSize++;
 				processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(resource).toString()),false);
 			}
@@ -526,7 +553,6 @@ public class ServerCommandProcessor {
 		@Override
 		public void onNormalServerChanged(ServerBean serverBean) {
 			if (!secure&&relay){
-				System.out.println("call server change");
 				Thread thread = new Thread(new Runnable() {
 					@Override
 					public void run() {
@@ -539,8 +565,8 @@ public class ServerCommandProcessor {
 							@Override
 							public boolean onMessageReceived(Message message, DataOutputStream outputStream) {
 								try {
-									JSONObject transferJsonObject= (JSONObject) (new JSONParser()).parse(message.getMessage());
-									if (transferJsonObject.containsKey("response")||transferJsonObject.containsKey("resultSize"))
+									JSONObject transferJsonObject = (JSONObject) (new JSONParser()).parse(message.getMessage());
+									if (transferJsonObject.containsKey("response") || transferJsonObject.containsKey("resultSize"))
 										return false;
 									processorListener.onProcessFinished(Message.makeMessage(message), false);
 									resultSize++;
@@ -549,6 +575,20 @@ public class ServerCommandProcessor {
 									e.printStackTrace();
 									return true;
 								}
+							}
+						}, new ServerConnectionManager.StateListener() {
+							@Override
+							public boolean onForceStop(DataOutputStream outputStream) {
+								if (state == Subscriber.STOPPED) {
+									try {
+										outputStream.writeUTF("{\"command\":\"UBSUBSCRIBE\", \"id\":" + id + "}");
+										outputStream.flush();
+									} catch (IOException e) {
+										e.printStackTrace();
+									}
+									return true;
+								}
+								return false;
 							}
 						}, secure);
 					}
@@ -583,6 +623,20 @@ public class ServerCommandProcessor {
 									e.printStackTrace();
 									return true;
 								}
+							}
+						}, new ServerConnectionManager.StateListener() {
+							@Override
+							public boolean onForceStop(DataOutputStream outputStream) {
+								if (state == Subscriber.STOPPED) {
+									try {
+										outputStream.writeUTF("{\"command\":\"UBSUBSCRIBE\", \"id\":" + id + "}");
+										outputStream.flush();
+									} catch (IOException e) {
+										e.printStackTrace();
+									}
+									return true;
+								}
+								return false;
 							}
 						}, secure);
 					}
