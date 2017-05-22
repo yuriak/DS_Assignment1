@@ -107,10 +107,10 @@ public class ServerConnectionManager {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			outputStream.writeUTF(message.getMessage().replaceAll("\0", "").trim());
 			outputStream.flush();
-			logger.debug(secure ? "Securely " : "" + "sent: " + message.getMessage());
+			logger.debug((secure ? "Securely " : "") + " sent: " + message.getMessage());
 			String data = null;
 			while ((data = inputStream.readUTF()) != null) {
-				logger.info(secure?"Securely ":""+"received: " + data);
+				logger.info((secure?"Securely ":"")+" received: " + data);
 				response = new Message(MessageType.STRING, data.replaceAll("\0", ""), null, null);
 				messages.add(response);
 			}
@@ -142,7 +142,7 @@ public class ServerConnectionManager {
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			outputStream.writeUTF(initialMessage.getMessage());
 			outputStream.flush();
-			logger.debug(secure ? "Securely " : "" + "sent: "+initialMessage.getMessage()+" through persistent connection");
+			logger.debug((secure ? "Securely " : "") + " sent: "+initialMessage.getMessage()+" through persistent connection");
 			Socket finalSocket = socket;
 			Thread listeningThread=new Thread(new Runnable() {
 				@Override
@@ -151,7 +151,7 @@ public class ServerConnectionManager {
 					try {
 						while ((string = inputStream.readUTF()) != null) {
 							Message response = new Message(string);
-							logger.debug(secure ? "Securely " : "" + "received: " + response.getMessage() + " through persistent connection");
+							logger.debug((secure ? "Securely " : "") + " received: " + response.getMessage() + " through persistent connection");
 							if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
 						}
 						logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + finalSocket.getInetAddress().getHostAddress() + ":" + finalSocket.getPort());

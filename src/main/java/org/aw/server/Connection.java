@@ -36,7 +36,7 @@ public class Connection implements Runnable {
 		String commandString = null;
 		try {
 			commandString = inputStream.readUTF();
-			logger.debug((secure ? "Securely" : "") + "Received: " + commandString);
+			logger.debug((secure ? "Securely" : "") + " Received: " + commandString);
 			processor.processCommand(commandString, secure,inputStream, new ServerCommandProcessor.ProcessorListener() {
 				@Override
 				public boolean onProcessFinished(List<Message> messages,boolean closeConnection) {
@@ -45,11 +45,11 @@ public class Connection implements Runnable {
 							if (message.getType() == MessageType.STRING) {
 								outputStream.writeUTF(message.getMessage());
 								outputStream.flush();
-								logger.debug((secure ? "Securely" : "") + "Sent: " + message.getMessage() +" to "+clientSocket.getInetAddress()+":"+clientSocket.getPort());
+								logger.debug((secure ? "Securely" : "") + " Sent: " + message.getMessage() +" to "+clientSocket.getInetAddress()+":"+clientSocket.getPort());
 							} else if (message.getType() == MessageType.BYTES) {
 								outputStream.write(message.getBytes());
 								outputStream.flush();
-								logger.debug((secure ? "Securely" : "") + "Sent: " + message.getBytes().length + " of bytes");
+								logger.debug((secure ? "Securely" : "") + " Sent: " + message.getBytes().length + " of bytes");
 							} else if (message.getType() == MessageType.FILE) {
 								BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(message.getFile()));
 								int bufferSize = 1024;
@@ -60,16 +60,17 @@ public class Connection implements Runnable {
 								}
 								outputStream.flush();
 								bufferedInputStream.close();
-								logger.debug((secure ? "Securely" : "") + "Sent file: " + message.getFile().getName());
+								logger.debug((secure ? "Securely" : "") + " Sent file: " + message.getFile().getName());
 							}
 						}
 						return true;
 					} catch (IOException e) {
-						logger.debug("Lost " + (secure ? "secure" : "") + "connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
+						logger.debug("Lost " + (secure ? "secure" : "") + " connection: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
 						try {
 							clientSocket.close();
 						} catch (IOException e1) {
 							e1.printStackTrace();
+							return false;
 						}
 						return false;
 					} finally {

@@ -351,7 +351,7 @@ public class ServerCommandProcessor {
 		while (true){
 			if (subscriber.getState()==Subscriber.STOPPED){
 				subscribingThread.interrupt();
-				subscribingThread = null;
+				subscribers.remove(subscriber);
 				break;
 			}
 		}
@@ -405,7 +405,6 @@ public class ServerCommandProcessor {
 		private boolean relay;
 		private boolean secure;
 		private String id;
-		
 		public static final int RUNNING=1;
 		public static final int STOPPED = 0;
 		private volatile int state=RUNNING;
@@ -437,7 +436,7 @@ public class ServerCommandProcessor {
 											JSONObject resultSizeObject = new JSONObject();
 											resultSizeObject.put("resultSize", resultSize);
 											processorListener.onProcessFinished(Message.makeAMessage(resultSizeObject.toString()), true);
-											state = Subscriber.STOPPED;
+											state = STOPPED;
 											break;
 										}
 									}
@@ -445,21 +444,11 @@ public class ServerCommandProcessor {
 							}
 						} catch (IOException e) {
 							e.printStackTrace();
-							state=Subscriber.STOPPED;
-							if (relay){
-								for (Thread thread : relayList) {
-									thread.interrupt();
-								}
-							}
+							state=STOPPED;
 							break;
 						} catch (ParseException e) {
 							e.printStackTrace();
-							state = Subscriber.STOPPED;
-							if (relay) {
-								for (Thread thread : relayList) {
-									thread.interrupt();
-								}
-							}
+							state = STOPPED;
 							break;
 						}
 					}
@@ -490,9 +479,6 @@ public class ServerCommandProcessor {
 											return true;
 										}
 										resultSize++;
-										if (state==STOPPED){
-											return true;
-										}
 										return false;
 									} catch (ParseException e) {
 										e.printStackTrace();
@@ -520,25 +506,28 @@ public class ServerCommandProcessor {
 					relayList.add(thread);
 				}
 			}
-			
 		}
 
 		@Override
 		public void onResourceChanged(Resource resource) {
-			if ((resource.getChannel().equals(this.template.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(this.template.getOwner())) &&
-					(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> this.template.getTags().contains(tag))) &&
-					(resource.getUri().toString().equals("") || resource.getUri().equals(this.template.getUri())) &&
-					((resource.getName().equals("") || this.template.getName().contains(resource.getName())) || (resource.getDescription().equals("") || this.template.getDescription().contains(resource.getDescription())))) {
-				Resource candidate= null;
-				try {
-					candidate = resource.clone();
-				} catch (CloneNotSupportedException e) {
-					e.printStackTrace();
+			if (state==RUNNING){
+				if ((resource.getChannel().equals(this.template.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(this.template.getOwner())) &&
+						(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> this.template.getTags().contains(tag))) &&
+						(resource.getUri().toString().equals("") || resource.getUri().equals(this.template.getUri())) &&
+						((resource.getName().equals("") || this.template.getName().contains(resource.getName())) || (resource.getDescription().equals("") || this.template.getDescription().contains(resource.getDescription())))) {
+					Resource candidate = null;
+					try {
+						candidate = resource.clone();
+					} catch (CloneNotSupportedException e) {
+						e.printStackTrace();
+					}
+					candidate.setServerBean(secure ? kernel.getMySSLServer() : kernel.getMyNormalServer());
+					candidate.setOwner("*");
+					this.resultSize++;
+					if (!processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(resource).toString()), false)) {
+						this.state = STOPPED;
+					}
 				}
-				candidate.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
-				candidate.setOwner("*");
-				this.resultSize++;
-				processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(resource).toString()),false);
 			}
 		}
 		
@@ -552,7 +541,7 @@ public class ServerCommandProcessor {
 
 		@Override
 		public void onNormalServerChanged(ServerBean serverBean) {
-			if (!secure&&relay){
+			if (!secure&&relay && state == RUNNING){
 				Thread thread = new Thread(new Runnable() {
 					@Override
 					public void run() {
@@ -600,7 +589,7 @@ public class ServerCommandProcessor {
 
 		@Override
 		public void onSecureServerChanged(ServerBean serverBean) {
-			if (secure&&relay){
+			if (secure&&relay&&state==RUNNING){
 				Thread thread = new Thread(new Runnable() {
 					@Override
 					public void run() {
