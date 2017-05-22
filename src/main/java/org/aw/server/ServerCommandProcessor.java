@@ -356,7 +356,8 @@ public class ServerCommandProcessor {
 			}
 		}
 	}
-	
+
+
 
 	private static List<Message> sendErrorMessage(String message){
 		List<Message> messages =new ArrayList<>();
