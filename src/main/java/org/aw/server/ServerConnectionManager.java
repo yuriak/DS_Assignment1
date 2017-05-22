@@ -155,16 +155,16 @@ public class ServerConnectionManager {
 							if (messageReceivedListener.onMessageReceived(response, outputStream)) break;
 						}
 						logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + finalSocket.getInetAddress().getHostAddress() + ":" + finalSocket.getPort());
-						finalSocket.close();
+//						finalSocket.close();
 					} catch (IOException e) {
 						e.printStackTrace();
-						if (finalSocket!=null){
-							try {
-								finalSocket.close();
-							} catch (IOException e1) {
-								e1.printStackTrace();
-							}
-						}
+//						if (finalSocket!=null){
+//							try {
+//								finalSocket.close();
+//							} catch (IOException e1) {
+//								e1.printStackTrace();
+//							}
+//						}
 					}
 				}
 			});
