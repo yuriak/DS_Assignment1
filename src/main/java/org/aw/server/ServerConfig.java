@@ -21,7 +21,7 @@ public class ServerConfig {
 	public static int TIME_OUT=1000;
 
 	public static final String SERVER_KEYSTORE_NAME = "sslserverkeys";
-	public static final String SERVER_TRUST_KEYSTORE_NAME = "servertrust";
+	public static final String SERVER_TRUST_KEYSTORE_NAME = "clienttrust";
 	public static String SERVER_KEYSTORE_PATH = ServerConfig.class.getClassLoader().getResource(SERVER_KEYSTORE_NAME).getPath();
 	public static String SERVER_TRUST_KEYSTORE_PATH = ServerConfig.class.getClassLoader().getResource(SERVER_TRUST_KEYSTORE_NAME).getPath();
 	public static final String SERVER_KEYSTORE_PASSWD = "123456";
