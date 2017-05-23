@@ -67,7 +67,6 @@ public class ServerConnectionManager {
 				executor.execute(new Connection(sslClientSocket,false,true));
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -123,7 +122,7 @@ public class ServerConnectionManager {
 					logger.debug("Close "+(secure?"Secure":"")+" connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+//				e.printStackTrace();
 			}
 			return messages;
 		}
@@ -157,7 +156,7 @@ public class ServerConnectionManager {
 						logger.debug("Closing " + (secure ? "Secure" : "") + " connection: " + finalSocket.getInetAddress().getHostAddress() + ":" + finalSocket.getPort());
 //						finalSocket.close();
 					} catch (IOException e) {
-						e.printStackTrace();
+//						e.printStackTrace();
 //						if (finalSocket!=null){
 //							try {
 //								finalSocket.close();
@@ -176,14 +175,14 @@ public class ServerConnectionManager {
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		}finally {
 			try {
 				if (socket!=null){
 					socket.close();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+//				e.printStackTrace();
 			}
 		}
 	}

@@ -48,7 +48,7 @@ public class ClientConnectionManager {
 						logger.info("Close secure connection: " + sslSocket.getInetAddress().getHostAddress() + ":" + sslSocket.getPort());
 					}
 				} catch (IOException e) {
-					e.printStackTrace();
+//					e.printStackTrace();
 				}
 				return messages;
 			}
@@ -77,7 +77,7 @@ public class ClientConnectionManager {
 						logger.info("Close connection: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 					}
 				} catch (IOException e) {
-					e.printStackTrace();
+//					e.printStackTrace();
 				}
 				return messages;
 			}
@@ -111,7 +111,7 @@ public class ClientConnectionManager {
 						}
 //						finalSocket.close();
 					} catch (IOException e) {
-						e.printStackTrace();
+//						e.printStackTrace();
 					}
 				}
 			}).start();
@@ -127,13 +127,12 @@ public class ClientConnectionManager {
 							}
 						}
 					} catch (IOException e) {
-						e.printStackTrace();
+//						e.printStackTrace();
 					}
 				}
 			}).start();
-			
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		}
 	}
 	

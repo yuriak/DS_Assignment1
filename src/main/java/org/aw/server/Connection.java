@@ -28,7 +28,7 @@ public class Connection implements Runnable {
 			this.inputStream = new DataInputStream(clientSocket.getInputStream());
 			this.outputStream = new DataOutputStream(clientSocket.getOutputStream());
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		}
 	}
 
@@ -69,7 +69,7 @@ public class Connection implements Runnable {
 						try {
 							clientSocket.close();
 						} catch (IOException e1) {
-							e1.printStackTrace();
+//							e1.printStackTrace();
 							return false;
 						}
 						return false;
@@ -81,14 +81,14 @@ public class Connection implements Runnable {
 								return false;
 							}
 						} catch (IOException e) {
-							e.printStackTrace();
+//							e.printStackTrace();
 							return false;
 						}
 					}
 				}
 			});
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		}
 		
 	}

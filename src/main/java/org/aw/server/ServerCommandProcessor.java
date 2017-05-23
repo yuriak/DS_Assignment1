@@ -444,11 +444,11 @@ public class ServerCommandProcessor {
 								}
 							}
 						} catch (IOException e) {
-							e.printStackTrace();
+//							e.printStackTrace();
 							state=STOPPED;
 							break;
 						} catch (ParseException e) {
-							e.printStackTrace();
+//							e.printStackTrace();
 							state = STOPPED;
 							break;
 						}
@@ -610,7 +610,7 @@ public class ServerCommandProcessor {
 									resultSize++;
 									return false;
 								} catch (ParseException e) {
-									e.printStackTrace();
+//									e.printStackTrace();
 									return true;
 								}
 							}
@@ -622,7 +622,7 @@ public class ServerCommandProcessor {
 										outputStream.writeUTF("{\"command\":\"UBSUBSCRIBE\", \"id\":" + id + "}");
 										outputStream.flush();
 									} catch (IOException e) {
-										e.printStackTrace();
+//										e.printStackTrace();
 									}
 									return true;
 								}
