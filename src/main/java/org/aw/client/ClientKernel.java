@@ -47,8 +47,8 @@ public class ClientKernel {
 		targetServer=null;
 		if(cmd.hasOption("secure")){
 			secure=true;
-			System.setProperty("javax.net.ssl.keyStore", ClientConfig.CLIENT_KEYSTORE_PATH);
-			System.setProperty("javax.net.ssl.keyStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
+//			System.setProperty("javax.net.ssl.keyStore", ClientConfig.CLIENT_KEYSTORE_PATH);
+//			System.setProperty("javax.net.ssl.keyStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
 			System.setProperty("javax.net.ssl.trustStore", ClientConfig.CLIENT_TRUST_KEYSTORE_PATH);
 			System.setProperty("javax.net.ssl.trustStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
 		}

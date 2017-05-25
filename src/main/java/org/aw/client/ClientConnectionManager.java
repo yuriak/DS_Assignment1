@@ -98,6 +98,7 @@ public class ClientConnectionManager {
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			outputStream.writeUTF(initialMessage.getMessage());
 			Socket finalSocket = socket;
+			boolean state=true;
 			new Thread(new Runnable() {
 				@Override
 				public void run() {
@@ -112,11 +113,13 @@ public class ClientConnectionManager {
 //						finalSocket.close();
 					} catch (IOException e) {
 //						e.printStackTrace();
+						logger.error("Error occurred in establish"+(secure?" secure":"")+" persistent connection, use -secure when establish secure connection");
+						System.exit(1);
 					}
 				}
 			}).start();
 			
-			new Thread(new Runnable() {
+			Thread keyboardListeningThread=new Thread(new Runnable() {
 				@Override
 				public void run() {
 					String string = null;
@@ -127,12 +130,13 @@ public class ClientConnectionManager {
 							}
 						}
 					} catch (IOException e) {
-//						e.printStackTrace();
+						e.printStackTrace();
 					}
 				}
-			}).start();
+			});
+			keyboardListeningThread.start();
 		} catch (IOException e) {
-//			e.printStackTrace();
+			e.printStackTrace();
 		}
 	}
 	

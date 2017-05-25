@@ -173,12 +173,16 @@ public class ServerCommandProcessor {
 			if (sameResource.size() > 0) {
 				resources.set(resources.indexOf(sameResource.get(0)), resource);
 				for (Subscriber subscriber : subscribers) {
-					subscriber.onResourceChanged(resource);
+					if (subscriber != null) {
+						subscriber.onResourceChanged(resource);
+					}
 				}
 			} else {
 				resources.add(resource);
 				for (Subscriber subscriber : subscribers) {
-					subscriber.onResourceChanged(resource);
+					if (subscriber != null) {
+						subscriber.onResourceChanged(resource);
+					}
 				}
 			}
 		}
@@ -512,10 +516,11 @@ public class ServerCommandProcessor {
 		@Override
 		public void onResourceChanged(Resource resource) {
 			if (state==RUNNING){
-				if ((resource.getChannel().equals(this.template.getChannel())) && (resource.getOwner().equals("") || resource.getOwner().equals(this.template.getOwner())) &&
-						(resource.getTags().size() == 0 || resource.getTags().stream().anyMatch(tag -> this.template.getTags().contains(tag))) &&
-						(resource.getUri().toString().equals("") || resource.getUri().equals(this.template.getUri())) &&
-						((resource.getName().equals("") || this.template.getName().contains(resource.getName())) || (resource.getDescription().equals("") || this.template.getDescription().contains(resource.getDescription())))) {
+				System.out.println(resource);
+				if ((this.template.getChannel().equals(resource.getChannel())) && (this.template.getOwner().equals("") || this.template.getOwner().equals(resource.getOwner())) &&
+						(this.template.getTags().size() == 0 || this.template.getTags().stream().anyMatch(tag -> resource.getTags().contains(tag))) &&
+						(this.template.getUri().toString().equals("") || this.template.getUri().equals(resource.getUri())) &&
+						((this.template.getName().equals("") || resource.getName().contains(resource.getName())) || (this.template.getDescription().equals("") || resource.getDescription().contains(resource.getDescription())))) {
 					Resource candidate = null;
 					try {
 						candidate = resource.clone();
