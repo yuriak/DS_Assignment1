@@ -97,6 +97,7 @@ public class ClientConnectionManager {
 			DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 			DataInputStream inputStream = new DataInputStream(socket.getInputStream());
 			outputStream.writeUTF(initialMessage.getMessage());
+			logger.info((secure?"Securely ":"")+"sent"+initialMessage.getMessage());
 			Socket finalSocket = socket;
 			boolean state=true;
 			new Thread(new Runnable() {
@@ -106,6 +107,7 @@ public class ClientConnectionManager {
 					try {
 						while ((string = inputStream.readUTF()) != null) {
 							Message response=new Message(string);
+							logger.debug((secure ? "Securely " : "")+"received "+string);
 							if(messageReceivedListener.onMessageReceived(response)){
 								break;
 							}
@@ -125,6 +127,7 @@ public class ClientConnectionManager {
 					String string = null;
 					try {
 						while ((string = sysReader.readLine()) != null) {
+							logger.debug("read from keyboard"+string);
 							if(keyPressListener.onKeyPressed(outputStream,string)){
 								break;
 							}

@@ -7,6 +7,7 @@ import org.apache.log4j.Logger;
 import org.aw.comman.Message;
 import org.aw.comman.Resource;
 import org.aw.comman.ServerBean;
+import org.aw.util.SSLUtil;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -49,8 +50,14 @@ public class ClientKernel {
 			secure=true;
 //			System.setProperty("javax.net.ssl.keyStore", ClientConfig.CLIENT_KEYSTORE_PATH);
 //			System.setProperty("javax.net.ssl.keyStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
-			System.setProperty("javax.net.ssl.trustStore", ClientConfig.CLIENT_TRUST_KEYSTORE_PATH);
-			System.setProperty("javax.net.ssl.trustStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
+//			System.setProperty("javax.net.ssl.trustStore", ClientConfig.CLIENT_TRUST_KEYSTORE_PATH);
+//			System.setProperty("javax.net.ssl.trustStorePassword", ClientConfig.CLIENT_KEYSTORE_PASSWD);
+			try {
+				SSLUtil.setSSLServerFactories(ClientConfig.CLIENT_KEYSTORE_INPUTSTREAM,ClientConfig.CLIENT_KEYSTORE_PASSWD,ClientConfig.CLIENT_TRUST_KEYSTORE_INPUTSTREAM,ClientConfig.CLIENT_KEYSTORE_PASSWD);
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
 		}
 		try {
 			int port= Integer.valueOf(cmd.getOptionValue("port"));
@@ -237,7 +244,6 @@ public class ClientKernel {
 				return false;
 			}
 		}, secure);
-		logger.debug(subscribeJsonObject.toString());
 	}
 
 	private void exchange(CommandLine cmd) {
