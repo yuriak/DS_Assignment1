@@ -478,11 +478,17 @@ public class ServerCommandProcessor {
 										JSONObject transferJsonObject = (JSONObject) (new JSONParser()).parse(message.getMessage());
 										if (transferJsonObject.containsKey("response") || transferJsonObject.containsKey("resultSize"))
 											return false;
-										if(!processorListener.onProcessFinished(Message.makeMessage(message), false)){
-											state=STOPPED;
-											return true;
+										Resource resource=Resource.parseJson(transferJsonObject);
+										if ((template.getChannel().equals(resource.getChannel())) && (template.getOwner().equals("") || template.getOwner().equals(resource.getOwner())) &&
+												(template.getTags().size() == 0 || template.getTags().stream().anyMatch(tag -> resource.getTags().contains(tag))) &&
+												(template.getUri().toString().equals("") || template.getUri().equals(resource.getUri())) &&
+												((template.getName().equals("") || resource.getName().contains(resource.getName())) || (template.getDescription().equals("") || resource.getDescription().contains(resource.getDescription())))){
+											if (!processorListener.onProcessFinished(Message.makeMessage(message), false)) {
+												state = STOPPED;
+												return true;
+											}
+											resultSize++;
 										}
-										resultSize++;
 										return false;
 									} catch (ParseException e) {
 										e.printStackTrace();
@@ -529,7 +535,7 @@ public class ServerCommandProcessor {
 					candidate.setServerBean(secure ? kernel.getMySSLServer() : kernel.getMyNormalServer());
 					candidate.setOwner("*");
 					this.resultSize++;
-					if (!processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(resource).toString()), false)) {
+					if (!processorListener.onProcessFinished(Message.makeAMessage(Resource.toJson(candidate).toString()), false)) {
 						this.state = STOPPED;
 					}
 				}
