@@ -98,16 +98,15 @@ public class ServerCommandProcessor {
 		if (!Resource.checkValidity(resourceObject))
 			return sendErrorMessage("invalid resource");
 		Resource resource=Resource.parseJson(resourceObject);
-		resource.setServerBean(secure?kernel.getMySSLServer():kernel.getMyNormalServer());
 		if (resource==null|| !resource.getUri().isAbsolute() || resource.getUri().getScheme().equals("file")||resource.getOwner().equals("*"))
 			return sendErrorMessage("cannot publish resource");
+		resource.setServerBean(secure ? kernel.getMySSLServer() : kernel.getMyNormalServer());
 		List<Resource> resources = kernel.getResources();
 		synchronized (resources){
 			if (resources.stream().anyMatch(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && !re.getOwner().equals(resource.getOwner()))){
 				System.out.println("cnnot");
 				return sendErrorMessage("cannot publish resource");
 			}
-			
 			List<Resource> sameResource = resources.stream().filter(re -> re.getChannel().equals(resource.getChannel()) && re.getUri().equals(resource.getUri()) && re.getOwner().equals(resource.getOwner())).collect(Collectors.toList());
 			if (sameResource.size() > 0) {
 				resources.set(resources.indexOf(sameResource.get(0)), resource);

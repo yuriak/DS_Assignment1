@@ -128,7 +128,7 @@ public class Resource implements Cloneable {
         String channel= (String) resourceObject.get("channel");
         String ezServerString= (String) resourceObject.get("ezserver");
         ServerBean serverBean =null;
-        if (!ezServerString.equals("")){
+        if (!ezServerString.equals("")&&!ezServerString.equals("null")){
             String ezHost = ezServerString.split(":")[0];
             int port=0;
             try {
